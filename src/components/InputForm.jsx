@@ -13,7 +13,7 @@ const FIELDS = [
     extraNote: null,
   },
   {
-    key: "totalMotility",
+    key: "motility",
     label: "Total Motility",
     unit: "%",
     hint: "WHO guideline: ≥ 42%",
@@ -37,7 +37,7 @@ const FIELDS = [
       "Even 2–3% is more common than you think. Enter what's on your report.",
   },
   {
-    key: "semenVolume",
+    key: "volume",
     label: "Semen Volume",
     unit: "mL",
     hint: "WHO guideline: 1.4 – 7.6 mL",
@@ -48,7 +48,7 @@ const FIELDS = [
     extraNote: null,
   },
   {
-    key: "ph",
+    key: "pH",
     label: "pH",
     unit: null,
     hint: "WHO guideline: 7.2 – 8.0",

@@ -3,49 +3,49 @@ import ParameterCard from "./ParameterCard";
 
 /* ── Contextualizing lines lookup ── */
 const CTX_LINES = {
-  volume: {
-    NORMAL: "Your semen volume is within the expected range — your body is producing enough fluid to support sperm transport.",
-    LOW: "Your semen volume is below the WHO threshold. This can sometimes relate to hydration, abstinence time, or how the sample was collected.",
-    HIGH: "Your semen volume is above average. This is rarely a concern, but your andrologist can confirm.",
-  },
-  concentration: {
-    NORMAL: "Your sperm concentration is healthy — there are enough sperm per milliliter to support natural conception.",
-    LOW: "Your concentration is below the WHO cutoff. Fewer sperm per milliliter can reduce the chances per cycle, but lifestyle changes and supplements can help.",
-    HIGH: "Your sperm concentration is above average — that's a strong result.",
-  },
-  totalCount: {
-    NORMAL: "Your total sperm count is within or above the normal range — a reassuring number.",
-    LOW: "Your total sperm count is below the reference value. This is one of the most important numbers, and your andrologist will want to discuss it.",
-    HIGH: "Your total sperm count is well above the threshold — no concerns here.",
+  spermCount: {
+    NORMAL: "Your concentration is within healthy range.",
+    WARNING: "Slightly below WHO guidelines — often improvable with lifestyle changes.",
+    CRITICAL: "Below the threshold where natural conception becomes harder, but treatment options exist.",
   },
   motility: {
-    NORMAL: "Your motility is in the healthy range — enough sperm are moving well to reach the egg.",
-    LOW: "Your motility is below the WHO threshold. This means fewer sperm are swimming effectively. Supplements like CoQ10 and lifestyle changes can support improvement.",
-    HIGH: "Your motility is strong — your sperm are moving well.",
-  },
-  progressiveMotility: {
-    NORMAL: "Your progressive motility is healthy — sperm are swimming forward effectively.",
-    LOW: "Your progressive motility is below the cutoff. This means fewer sperm are swimming in a straight line, which matters for reaching the egg.",
-    HIGH: "Your progressive motility is excellent — sperm are moving with purpose.",
+    NORMAL: "Enough of your sperm are moving well.",
+    WARNING: "Movement is slightly reduced — this responds well to targeted nutrition.",
+    CRITICAL: "Significantly reduced movement — this is the most important parameter to address.",
   },
   morphology: {
-    NORMAL: "Your morphology is within the WHO range. Remember, even fertile men typically have a low percentage of 'ideal' forms.",
-    LOW: "Your morphology is below 4%. This is the most commonly misread value — even 3% can be clinically fine depending on other parameters.",
-    HIGH: "Your morphology is above average — a strong result.",
+    NORMAL: "Shape is within WHO guidelines.",
+    WARNING: "Slightly below 4% — this is the most commonly misread value. Context matters more than the number.",
+    CRITICAL: "Below standard, but morphology alone rarely determines fertility outcomes.",
+  },
+  volume: {
+    NORMAL: "Semen volume is healthy.",
+    WARNING: "Volume is outside the typical range — worth discussing with a doctor.",
+    CRITICAL: "Volume significantly outside range — may affect sperm delivery.",
+  },
+  pH: {
+    NORMAL: "Acidity is balanced.",
+    WARNING: "Slightly outside normal range — could indicate a minor issue worth checking.",
+    CRITICAL: "pH outside safe range — can indicate infection or blockage.",
+  },
+  wbc: {
+    NORMAL: "No signs of infection in your sample.",
+    WARNING: "Mildly elevated white blood cells — may indicate mild inflammation.",
+    CRITICAL: "Elevated pus cells — a sign of possible infection requiring medical attention.",
   },
 };
 
 /* ── Parameter metadata ── */
 const PARAM_META = {
-  volume: { label: "Volume", unit: "mL", whoRange: "≥ 1.5 mL" },
-  concentration: { label: "Concentration", unit: "M/mL", whoRange: "≥ 15 M/mL" },
-  totalCount: { label: "Total Sperm Count", unit: "M", whoRange: "≥ 39 M" },
-  motility: { label: "Total Motility", unit: "%", whoRange: "≥ 40%" },
-  progressiveMotility: { label: "Progressive Motility", unit: "%", whoRange: "≥ 32%" },
-  morphology: { label: "Morphology", unit: "%", whoRange: "≥ 4%" },
+  spermCount: { label: "Sperm Count", unit: "million/mL", whoRange: "≥ 16 million/mL" },
+  motility: { label: "Motility", unit: "%", whoRange: "≥ 42%" },
+  morphology: { label: "Morphology", unit: "%", whoRange: "≥ 4% (Kruger)" },
+  volume: { label: "Volume", unit: "mL", whoRange: "1.4 – 7.6 mL" },
+  pH: { label: "pH", unit: "", whoRange: "7.2 – 8.0" },
+  wbc: { label: "WBC", unit: "million/mL", whoRange: "< 1 million/mL" },
 };
 
-const PARAM_ORDER = ["volume", "concentration", "totalCount", "motility", "progressiveMotility", "morphology"];
+const PARAM_ORDER = ["spermCount", "motility", "morphology", "volume", "pH", "wbc"];
 
 /* ── Verdict config ── */
 const VERDICT_CONFIG = {
@@ -198,7 +198,7 @@ export default function ResultsDashboard({ result, snippet, fmCode }) {
                 <div key={i} style={styles.actionRow}>
                   <span style={styles.checkbox}>☐</span>
                   <div>
-                    <p style={styles.actionText}>{action.text}</p>
+                    <p style={styles.actionText}>{action.action}</p>
                     {action.fertiQ && (
                       <a
                         href="https://www.formen.health/products/fertiq?utm_source=lab_explainer&utm_medium=report&utm_campaign=fertiq_cta"
