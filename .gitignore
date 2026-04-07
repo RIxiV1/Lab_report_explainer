@@ -4,6 +4,7 @@ dist/
 .DS_Store
 *.local
 .gemini/
+.claude/
 implementation_plan.md
 task.md
 walkthrough.md

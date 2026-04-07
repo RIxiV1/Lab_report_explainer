@@ -182,8 +182,6 @@ export default function InputForm({ onSubmit, onFMCodeLookup }) {
       style={{ background: "#FAF8F5" }}
     >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Serif+Display&display=swap');
-        .fm-form * { font-family: 'DM Sans', sans-serif; }
         .fm-form h1 { font-family: 'DM Serif Display', serif; }
         .fm-input:focus { outline: none; box-shadow: 0 0 0 2px rgba(13,110,110,0.25); }
         .fm-input.error { border-color: #f87171; }
