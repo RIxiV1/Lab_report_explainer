@@ -7,18 +7,8 @@ import { analyzeReport } from "./lib/ruleEngine";
 import { snippets } from "./lib/snippets";
 import { useFMCode } from "./hooks/useFMCode";
 
-function generateFMCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const seg = () =>
-    Array.from(crypto.getRandomValues(new Uint8Array(4)))
-      .map((b) => chars[b % chars.length])
-      .join("");
-  return `FM-${seg()}-${seg()}`;
-}
-
 function getSnippet(snippetKey, urgencyFlag, ageFlag) {
   const base = snippets[snippetKey] || snippets["FALLBACK"];
-  if (!base) return snippets["FALLBACK"];
   let combined = { ...base };
   if (urgencyFlag === "HIGH") {
     const modifier = snippets["HIGH_URGENCY_MODIFIER"];
@@ -37,14 +27,13 @@ export default function App() {
   const [activeSnippet, setActiveSnippet] = useState(null);
   const [fmCode, setFmCode] = useState(null);
   const [lookupError, setLookupError] = useState("");
-  const { saveResult, loadResult } = useFMCode();
+  const { generateCode, saveResult, loadResult } = useFMCode();
 
   function handleSubmit(formData) {
     setLookupError("");
     const result = analyzeReport(formData);
     const snippet = getSnippet(result.snippetKey, result.urgencyFlag, result.ageFlag);
-    const code = generateFMCode();
-    localStorage.setItem("fm_active_code", code);
+    const code = generateCode();
     saveResult(code, result);
     setReportResult(result);
     setActiveSnippet(snippet);
@@ -78,17 +67,13 @@ export default function App() {
   return (
     <div style={{ minHeight: "100vh", background: "#FAF8F5" }}>
       {screen === "input" && (
-        <>
-          <InputForm onSubmit={handleSubmit} onFMCodeLookup={handleFMCodeLookup} />
-          {lookupError && (
-            <div style={{ maxWidth: 480, margin: "0 auto", padding: "12px 16px", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 8, fontSize: 14, color: "#92400e", textAlign: "center" }}>
-              {lookupError}
-            </div>
-          )}
-        </>
+        <InputForm onSubmit={handleSubmit} onFMCodeLookup={handleFMCodeLookup} lookupError={lookupError} />
       )}
       {screen === "processing" && (
-        <ProcessingScreen onComplete={() => setScreen("results")} />
+        <ProcessingScreen
+          onComplete={() => setScreen("results")}
+          onBack={() => setScreen("input")}
+        />
       )}
       {screen === "results" && reportResult && activeSnippet && (
         <>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 
 const microCopy = [
   "Did you know? Morphology is the most commonly misread value in semen reports.",
@@ -7,128 +7,100 @@ const microCopy = [
   "Your FM Code is being created. Save it to return to these results anytime.",
 ];
 
-export default function ProcessingScreen({ onComplete }) {
+const TOTAL_MS = 6000;
+
+export default function ProcessingScreen({ onComplete, onBack }) {
   const [copyIndex, setCopyIndex] = useState(0);
   const [fadeKey, setFadeKey] = useState(0);
-  const [showAlmost, setShowAlmost] = useState(false);
-  const timerRef = useRef(null);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    // Rotate micro-copy every 3s
+    const start = Date.now();
+
     const copyInterval = setInterval(() => {
-      setCopyIndex((prev) => (prev + 1) % microCopy.length);
-      setFadeKey((prev) => prev + 1);
-    }, 3000);
+      setCopyIndex((p) => (p + 1) % microCopy.length);
+      setFadeKey((p) => p + 1);
+    }, 2500);
 
-    // Show "almost ready" at 12s
-    const almostTimer = setTimeout(() => setShowAlmost(true), 12000);
+    const progressInterval = setInterval(() => {
+      const pct = Math.min(((Date.now() - start) / TOTAL_MS) * 100, 100);
+      setProgress(pct);
+    }, 200);
 
-    // Complete at 15s
-    timerRef.current = setTimeout(() => {
-      if (onComplete) onComplete();
-    }, 15000);
+    const completeTimer = setTimeout(() => onComplete?.(), TOTAL_MS);
 
     return () => {
       clearInterval(copyInterval);
-      clearTimeout(almostTimer);
-      clearTimeout(timerRef.current);
+      clearInterval(progressInterval);
+      clearTimeout(completeTimer);
     };
   }, [onComplete]);
 
   return (
-    <div style={styles.wrapper}>
-      <style>{keyframes}</style>
-      <div style={styles.container}>
-        {/* Spinner */}
-        <div style={styles.spinnerOuter}>
-          <div style={styles.spinner} />
+    <div style={{ minHeight: "100vh", background: "#FAF8F5", display: "flex", flexDirection: "column" }}>
+      <style>{`
+        @keyframes fm-fadeup { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+        .fm-micro { animation: fm-fadeup 0.4s ease; }
+      `}</style>
+
+      {/* Nav with back */}
+      <nav style={{ background: "#fff", borderBottom: "1px solid #ece8e3", padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 30, height: 30, borderRadius: 7, background: "#0D6E6E", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🔬</div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#0D6E6E", lineHeight: 1.1 }}>ForMen Health</div>
+            <div style={{ fontSize: 11, color: "#999", lineHeight: 1.1 }}>Lab Report Explainer</div>
+          </div>
         </div>
+        <button onClick={onBack} style={{ background: "none", border: "1.5px solid #ddd", borderRadius: 8, padding: "7px 14px", fontSize: 13, color: "#555", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}>
+          ← Go back
+        </button>
+      </nav>
 
-        {/* Title */}
-        <h2 style={styles.title}>Analyzing your report…</h2>
+      {/* Progress bar */}
+      <div style={{ height: 3, background: "#e8e3dd" }}>
+        <div style={{ height: "100%", background: "#0D6E6E", width: `${progress}%`, transition: "width 0.2s linear" }} />
+      </div>
 
-        {/* Rotating micro-copy */}
-        <p key={fadeKey} style={styles.microCopy}>
-          {microCopy[copyIndex]}
-        </p>
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 24px" }}>
+        <div style={{ textAlign: "center", maxWidth: 440, fontFamily: "'DM Sans', sans-serif" }}>
 
-        {/* Almost ready */}
-        <p
-          style={{
-            ...styles.almostReady,
-            opacity: showAlmost ? 1 : 0,
-            transform: showAlmost ? "translateY(0)" : "translateY(8px)",
-          }}
-        >
-          Almost ready — generating your personal report…
-        </p>
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: "#1a1a1a", marginBottom: 8 }}>
+            Analysing your report…
+          </h2>
+          <p style={{ fontSize: 14, color: "#999", marginBottom: 32 }}>This only takes a moment.</p>
+
+          <div style={{ background: "#fff", border: "1px solid #ece8e3", borderRadius: 14, padding: "20px 24px", marginBottom: 28, boxShadow: "0 1px 8px rgba(0,0,0,0.05)" }}>
+            <p key={fadeKey} className="fm-micro" style={{ fontSize: 15, color: "#444", lineHeight: 1.65, margin: 0 }}>
+              💡 {microCopy[copyIndex]}
+            </p>
+          </div>
+
+          {/* Progress steps */}
+          {[
+            { label: "Comparing against WHO 2021 reference ranges", done: progress > 30 },
+            { label: "Identifying your primary findings", done: progress > 60 },
+            { label: "Generating your personalised next steps", done: progress > 85 },
+          ].map((step, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, textAlign: "left" }}>
+              <div style={{ width: 20, height: 20, borderRadius: "50%", flexShrink: 0, background: step.done ? "#0D6E6E" : "#e8e3dd", display: "flex", alignItems: "center", justifyContent: "center", transition: "background 0.4s" }}>
+                {step.done && <span style={{ color: "#fff", fontSize: 11, lineHeight: 1 }}>✓</span>}
+              </div>
+              <span style={{ fontSize: 13, color: step.done ? "#0D6E6E" : "#bbb", fontWeight: step.done ? 500 : 400, transition: "color 0.4s" }}>
+                {step.label}
+              </span>
+            </div>
+          ))}
+
+          {/* Skip */}
+          <button
+            onClick={() => onComplete?.()}
+            style={{ marginTop: 20, background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#aaa", fontFamily: "'DM Sans', sans-serif" }}
+          >
+            Skip →
+          </button>
+        </div>
       </div>
     </div>
   );
 }
-
-const keyframes = `
-@keyframes fm-spin {
-  0%   { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-@keyframes fm-fadeIn {
-  0%   { opacity: 0; transform: translateY(6px); }
-  100% { opacity: 1; transform: translateY(0); }
-}
-`;
-
-const styles = {
-  wrapper: {
-    position: "fixed",
-    inset: 0,
-    background: "#FAF8F5",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 9999,
-  },
-  container: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    maxWidth: 420,
-    padding: "0 24px",
-    textAlign: "center",
-  },
-  spinnerOuter: {
-    marginBottom: 32,
-  },
-  spinner: {
-    width: 56,
-    height: 56,
-    border: "4px solid #e0e0e0",
-    borderTopColor: "#0D6E6E",
-    borderRadius: "50%",
-    animation: "fm-spin 1s linear infinite",
-  },
-  title: {
-    fontFamily: "'DM Sans', sans-serif",
-    fontSize: 20,
-    fontWeight: 600,
-    color: "#2D2D2D",
-    margin: "0 0 16px",
-  },
-  microCopy: {
-    fontFamily: "'DM Sans', sans-serif",
-    fontSize: 15,
-    color: "#5A5A5A",
-    lineHeight: 1.6,
-    minHeight: 48,
-    animation: "fm-fadeIn 0.5s ease",
-    margin: "0 0 24px",
-  },
-  almostReady: {
-    fontFamily: "'DM Sans', sans-serif",
-    fontSize: 14,
-    fontWeight: 500,
-    color: "#0D6E6E",
-    transition: "opacity 0.8s ease, transform 0.8s ease",
-    margin: 0,
-  },
-};

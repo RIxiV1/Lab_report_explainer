@@ -100,6 +100,7 @@ export default function AndrologistSection() {
 
   return (
     <section
+      id="andrologist-section"
       style={{
         maxWidth: 780,
         margin: "0 auto",
