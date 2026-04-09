@@ -7,7 +7,7 @@ const microCopy = [
   "Your FM Code is being created. Save it to return to these results anytime.",
 ];
 
-const TOTAL_MS = 6000;
+const TOTAL_MS = 3000;
 
 export default function ProcessingScreen({ onComplete, onBack }) {
   const [copyIndex, setCopyIndex] = useState(0);

@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import InputForm from "./components/InputForm";
 import ProcessingScreen from "./components/ProcessingScreen";
 import ResultsDashboard from "./components/ResultsDashboard";
 import AndrologistSection from "./components/AndrologistSection";
+import CompareView from "./components/CompareView";
 import { analyzeReport } from "./lib/ruleEngine";
 import { snippets } from "./lib/snippets";
 import { useFMCode } from "./hooks/useFMCode";
+import { trackEvent, EVENTS } from "./lib/analytics";
 
 function getSnippet(snippetKey, urgencyFlag, ageFlag) {
   const base = snippets[snippetKey] || snippets["FALLBACK"];
@@ -29,6 +31,11 @@ export default function App() {
   const [lookupError, setLookupError] = useState("");
   const { generateCode, saveResult, loadResult } = useFMCode();
 
+  // Track screen changes
+  useEffect(() => {
+    trackEvent(EVENTS.SCREEN_CHANGED, { screen });
+  }, [screen]);
+
   function handleSubmit(formData) {
     setLookupError("");
     const result = analyzeReport(formData);
@@ -39,6 +46,11 @@ export default function App() {
     setActiveSnippet(snippet);
     setFmCode(code);
     setScreen("processing");
+    trackEvent(EVENTS.FORM_SUBMITTED, {
+      snippetKey: result.snippetKey,
+      verdict: result.verdict,
+      fmCode: code,
+    });
   }
 
   function handleFMCodeLookup(code) {
@@ -54,6 +66,7 @@ export default function App() {
     setActiveSnippet(snippet);
     setFmCode(code);
     setScreen("results");
+    trackEvent(EVENTS.FM_CODE_LOADED, { fmCode: code });
   }
 
   function handleBackToInput() {
@@ -82,9 +95,22 @@ export default function App() {
       )}
       {screen === "results" && reportResult && activeSnippet && (
         <>
-          <ResultsDashboard result={reportResult} snippet={activeSnippet} fmCode={fmCode} onReset={handleReset} onBackToInput={handleBackToInput} />
+          <ResultsDashboard
+            result={reportResult}
+            snippet={activeSnippet}
+            fmCode={fmCode}
+            onReset={handleReset}
+            onBackToInput={handleBackToInput}
+            onCompare={() => setScreen("compare")}
+          />
           <AndrologistSection />
         </>
+      )}
+      {screen === "compare" && (
+        <CompareView
+          onBack={() => setScreen("results")}
+          initialCode={fmCode}
+        />
       )}
     </div>
   );

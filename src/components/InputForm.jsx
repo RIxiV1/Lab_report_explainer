@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from "react";
+import { parseReportText } from "../lib/reportParser";
+import { trackEvent, EVENTS } from "../lib/analytics";
 
 const FIELDS = [
   { key: "spermCount", label: "Sperm Count",          unit: "million/mL", hint: "WHO: ≥ 16 million/mL",      tooltip: "The concentration of sperm per millilitre of semen.",                               min: 0,   max: 500, step: "any", extraNote: null },
@@ -9,22 +11,42 @@ const FIELDS = [
   { key: "wbc",        label: "WBC / Pus Cells",       unit: "million/mL", hint: "WHO: < 1 million/mL",        tooltip: "White blood cells in semen — elevated levels may indicate infection.",              min: 0,   max: 50,  step: "any", extraNote: null },
 ];
 
-const FM_CODE_REGEX = /^FM-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}$/;
+const FM_CODE_REGEX = /^FM-[A-Z2-9]{4}-[A-Z2-9]{4}$/;
+const DRAFT_KEY = "fm_input_draft";
+
+function loadDraft() {
+  try {
+    return JSON.parse(localStorage.getItem(DRAFT_KEY) || "{}");
+  } catch { return {}; }
+}
+
+function saveDraft(data) {
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(data)); } catch {}
+}
 
 export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBackToReport }) {
-  const [values, setValues]           = useState({});
+  const draft = loadDraft();
+  const [values, setValues]           = useState(draft.values || {});
   const [errors, setErrors]           = useState({});
   const [touched, setTouched]         = useState({});
   const [activeTooltip, setActiveTooltip] = useState(null);
-  const [showOptional, setShowOptional]   = useState(false);
-  const [age, setAge]                 = useState("");
-  const [monthsTrying, setMonthsTrying]   = useState("");
+  const [showOptional, setShowOptional]   = useState(draft.age || draft.monthsTrying ? true : false);
+  const [age, setAge]                 = useState(draft.age || "");
+  const [monthsTrying, setMonthsTrying]   = useState(draft.monthsTrying || "");
   const [ageError, setAgeError]       = useState("");
   const [monthsError, setMonthsError] = useState("");
   const [showFMCode, setShowFMCode]   = useState(false);
   const [fmCode, setFmCode]           = useState("");
   const [fmCodeError, setFmCodeError] = useState("");
+  const [showPaste, setShowPaste]     = useState(false);
+  const [pasteText, setPasteText]     = useState("");
+  const [parseResult, setParseResult] = useState(null);
   const tooltipRef = useRef(null);
+
+  // Persist draft to localStorage on changes
+  useEffect(() => {
+    saveDraft({ values, age, monthsTrying });
+  }, [values, age, monthsTrying]);
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -78,7 +100,7 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
     const formData = {};
     FIELDS.forEach((f) => (formData[f.key] = parseFloat(values[f.key])));
     if (age !== "") formData.age = parseFloat(age);
-    if (monthsTrying !== "") formData.monthsTrying = parseFloat(monthsTrying);
+    if (monthsTrying !== "") formData.ttcMonths = parseFloat(monthsTrying);
     onSubmit(formData);
   }
 
@@ -89,6 +111,17 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
     onFMCodeLookup(trimmed);
   }
 
+  function handlePasteAnalyse() {
+    if (!pasteText.trim()) return;
+    const result = parseReportText(pasteText);
+    setParseResult(result);
+    if (result.foundCount > 0) {
+      setValues((prev) => ({ ...prev, ...Object.fromEntries(Object.entries(result.results).map(([k, v]) => [k, String(v)])) }));
+      trackEvent(EVENTS.PASTE_REPORT_USED, { foundCount: result.foundCount, matched: Object.keys(result.results) });
+    }
+  }
+
+  const filledCount = FIELDS.filter((f) => values[f.key] !== "" && values[f.key] !== undefined).length;
   const valid = isFormValid();
 
   return (
@@ -136,9 +169,50 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
           </p>
         </div>
 
+        {/* Paste from Report */}
+        <div style={{ marginBottom: 20, textAlign: "center" }}>
+          <button type="button" onClick={() => setShowPaste((p) => !p)}
+            style={{ background: "none", border: "1.5px dashed #0D6E6E", borderRadius: 10, padding: "10px 20px", cursor: "pointer", fontSize: 13, color: "#0D6E6E", fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
+            {showPaste ? "▾ Hide" : "📋 Paste from your lab report"} — auto-fill values
+          </button>
+          {showPaste && (
+            <div style={{ marginTop: 12, textAlign: "left" }}>
+              <textarea
+                value={pasteText}
+                onChange={(e) => { setPasteText(e.target.value); setParseResult(null); }}
+                placeholder={"Paste your lab report text here...\n\nExample:\nSperm Count: 45 million/mL\nTotal Motility: 55%\nMorphology: 5%\nVolume: 3.2 mL\npH: 7.4\nWBC: 0.3 million/mL"}
+                style={{ width: "100%", minHeight: 120, border: "1.5px solid #ddd", borderRadius: 10, padding: "12px 14px", fontSize: 13, fontFamily: "'DM Sans', sans-serif", resize: "vertical", background: "#fff", boxSizing: "border-box" }}
+              />
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
+                <button type="button" onClick={handlePasteAnalyse}
+                  style={{ background: "#0D6E6E", color: "#fff", border: "none", borderRadius: 8, padding: "8px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+                  Extract Values
+                </button>
+                {parseResult && (
+                  <span style={{ fontSize: 13, color: parseResult.foundCount > 0 ? "#15803d" : "#e55", fontWeight: 500 }}>
+                    {parseResult.foundCount > 0
+                      ? `Found ${parseResult.foundCount} of 6 values — check and adjust below`
+                      : "Couldn't extract values — please enter manually"}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Form */}
         <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #ece8e3", padding: "28px 24px" }}>
           <form onSubmit={handleSubmit} noValidate>
+
+            {/* Progress Indicator */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+              <div style={{ flex: 1, height: 4, background: "#e8e3dd", borderRadius: 999, overflow: "hidden" }}>
+                <div style={{ height: "100%", background: filledCount === 6 ? "#16a34a" : "#0D6E6E", width: `${(filledCount / 6) * 100}%`, transition: "width 0.3s, background 0.3s", borderRadius: 999 }} />
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 600, color: filledCount === 6 ? "#16a34a" : "#999", whiteSpace: "nowrap" }}>
+                {filledCount} of 6
+              </span>
+            </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12, marginBottom: 4 }}>
               {FIELDS.map((field) => {
@@ -151,13 +225,16 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
                         <button
                           type="button"
                           aria-label={`What is ${field.label}?`}
+                          aria-expanded={activeTooltip === field.key}
                           onClick={() => setActiveTooltip(activeTooltip === field.key ? null : field.key)}
+                          onFocus={() => setActiveTooltip(field.key)}
+                          onBlur={() => setActiveTooltip(null)}
                           className="fm-tooltip-btn"
                           style={{ width: 28, height: 28, borderRadius: "50%", background: activeTooltip === field.key ? "#0D6E6E" : "#e0dbd5", color: activeTooltip === field.key ? "#fff" : "#777", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>
                           ?
                         </button>
                         {activeTooltip === field.key && (
-                          <div role="tooltip" style={{ position: "absolute", right: 0, bottom: "calc(100% + 8px)", width: 220, background: "#1a1a1a", color: "#fff", fontSize: 12, lineHeight: 1.55, borderRadius: 8, padding: "10px 12px", zIndex: 100 }}>
+                          <div role="tooltip" style={{ position: "absolute", right: 0, bottom: "calc(100% + 8px)", width: "min(220px, 70vw)", background: "#1a1a1a", color: "#fff", fontSize: 12, lineHeight: 1.55, borderRadius: 8, padding: "10px 12px", zIndex: 100 }}>
                             {field.tooltip}
                             <div style={{ position: "absolute", bottom: -5, right: 12, width: 10, height: 10, background: "#1a1a1a", transform: "rotate(45deg)" }} />
                           </div>

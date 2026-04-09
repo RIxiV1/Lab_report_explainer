@@ -33,8 +33,8 @@ function classifyPH(value) {
 function classifyWBC(value) {
   const t = THRESHOLDS.wbc;
   if (value < t.normalMax) return "NORMAL";
-  if (value <= t.warningMax) return "WARNING";
-  return "CRITICAL";
+  if (value <= t.warningMax) return "WARNING"; // 1.0–2.0 is WARNING
+  return "CRITICAL"; // >2.0
 }
 
 function getStatus(param, value) {
@@ -112,31 +112,39 @@ export function analyzeReport(inputs) {
   if (criticals.length > 0) {
     verdict = "ACT_NOW";
 
-    // Check priority-ordered criticals first (motility > count > morphology)
-    let matched = false;
-    for (const entry of CRITICAL_PRIORITY) {
-      if (statuses[entry.param] === "CRITICAL") {
-        snippetKey = entry.key;
-        primaryIssue = entry.label;
-        matched = true;
-        break;
-      }
-    }
+    // Check if all three core params are critical
+    const coreCriticals = ["spermCount", "motility", "morphology"].filter((p) => statuses[p] === "CRITICAL");
 
-    if (!matched) {
-      // Volume, pH, WBC criticals
-      if (statuses.volume === "CRITICAL") {
-        snippetKey = determineCriticalVolumeKey(volume);
-        primaryIssue = snippetKey === "LOW_VOLUME" ? "Critically low volume" : "Abnormally high volume";
-      } else if (statuses.pH === "CRITICAL") {
-        snippetKey = determineCriticalPHKey(pH);
-        primaryIssue = snippetKey === "ABNORMAL_PH_LOW" ? "Abnormally low pH" : "Abnormally high pH";
-      } else if (statuses.wbc === "CRITICAL") {
-        snippetKey = "ELEVATED_WBC";
-        primaryIssue = "Significantly elevated white blood cells";
-      } else {
-        snippetKey = "FALLBACK";
-        primaryIssue = "Multiple parameters need attention";
+    if (coreCriticals.length === 3) {
+      snippetKey = "ALL_THREE_LOW";
+      primaryIssue = "All three core parameters critically low";
+    } else {
+      // Check priority-ordered criticals (motility > count > morphology)
+      let matched = false;
+      for (const entry of CRITICAL_PRIORITY) {
+        if (statuses[entry.param] === "CRITICAL") {
+          snippetKey = entry.key;
+          primaryIssue = entry.label;
+          matched = true;
+          break;
+        }
+      }
+
+      if (!matched) {
+        // Volume, pH, WBC criticals
+        if (statuses.volume === "CRITICAL") {
+          snippetKey = determineCriticalVolumeKey(volume);
+          primaryIssue = snippetKey === "LOW_VOLUME" ? "Critically low volume" : "Abnormally high volume";
+        } else if (statuses.pH === "CRITICAL") {
+          snippetKey = determineCriticalPHKey(pH);
+          primaryIssue = snippetKey === "ABNORMAL_PH_LOW" ? "Abnormally low pH" : "Abnormally high pH";
+        } else if (statuses.wbc === "CRITICAL") {
+          snippetKey = "ELEVATED_WBC";
+          primaryIssue = "Significantly elevated white blood cells";
+        } else {
+          snippetKey = "FALLBACK";
+          primaryIssue = "Multiple parameters need attention";
+        }
       }
     }
   } else if (warnings.length >= 3) {
@@ -172,10 +180,21 @@ export function analyzeReport(inputs) {
         primaryIssue = "Borderline morphology";
       }
     } else {
-      // Warnings only in volume/pH/wbc — use first warning found
+      // Warnings only in volume/pH/wbc — map to existing snippet keys
       const secondary = ["volume", "pH", "wbc"].find((p) => statuses[p] === "WARNING");
-      snippetKey = secondary ? `WARNING_${secondary.toUpperCase()}` : "FALLBACK";
-      primaryIssue = secondary ? `Borderline ${PARAM_LABELS[secondary]}` : "Some parameters need attention";
+      if (secondary === "volume") {
+        snippetKey = volume < THRESHOLDS.volume.normalMin ? "LOW_VOLUME" : "HIGH_VOLUME";
+        primaryIssue = volume < THRESHOLDS.volume.normalMin ? "Borderline low volume" : "Borderline high volume";
+      } else if (secondary === "pH") {
+        snippetKey = pH < THRESHOLDS.pH.normalMin ? "ABNORMAL_PH_LOW" : "ABNORMAL_PH_HIGH";
+        primaryIssue = pH < THRESHOLDS.pH.normalMin ? "Borderline low pH" : "Borderline high pH";
+      } else if (secondary === "wbc") {
+        snippetKey = "ELEVATED_WBC";
+        primaryIssue = "Elevated white blood cells";
+      } else {
+        snippetKey = "FALLBACK";
+        primaryIssue = "Some parameters need attention";
+      }
     }
   } else {
     verdict = "ALL_NORMAL";

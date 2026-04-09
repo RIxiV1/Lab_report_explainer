@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { trackEvent, EVENTS } from "../lib/analytics";
 
 const suggestions = [
   {
@@ -58,36 +59,48 @@ const suggestions = [
         plain: "CoQ10 powers the mitochondria in sperm tails — the engine that drives motility. Supplementation has shown improvements in both count and motility in clinical studies.",
         dosage: "200-400 mg/day",
         evidence: "Multiple RCTs show significant improvement in sperm concentration and motility after 3-6 months.",
+        source: "Safarinejad MR. Efficacy of coenzyme Q10 on semen parameters. J Urol. 2009;182(1):237-248.",
+        sourceId: "PMID: 19447425",
       },
       {
         name: "Zinc",
         plain: "Zinc plays a direct role in testosterone production, sperm maturation, and maintaining sperm membrane integrity.",
         dosage: "25-50 mg/day (elemental zinc)",
         evidence: "Zinc supplementation in deficient men has shown 74% increase in sperm count in some studies.",
+        source: "Fallah A, et al. Zinc is an essential element for male fertility. J Reprod Infertil. 2018;19(2):69-81.",
+        sourceId: "PMID: 30009140",
       },
       {
         name: "L-Carnitine",
         plain: "L-Carnitine transports fatty acids into sperm mitochondria for energy production, directly fueling sperm movement.",
         dosage: "2-3 g/day (as L-carnitine or acetyl-L-carnitine)",
         evidence: "Well-studied for improving progressive motility, especially in men with asthenozoospermia.",
+        source: "Balercia G, et al. Placebo-controlled double-blind randomized trial on L-carnitine. Fertil Steril. 2005;84(3):662-671.",
+        sourceId: "PMID: 16169400",
       },
       {
         name: "Vitamin C & Vitamin E",
         plain: "This antioxidant duo works together — Vitamin C protects in water-based environments, Vitamin E in fat-based cell membranes — to shield sperm from oxidative damage.",
         dosage: "Vitamin C: 500-1000 mg/day, Vitamin E: 400 IU/day",
         evidence: "Combined supplementation reduces sperm DNA fragmentation and improves morphology.",
+        source: "Greco E, et al. Reduction of the incidence of sperm DNA fragmentation by oral antioxidant treatment. J Androl. 2005;26(3):349-353.",
+        sourceId: "PMID: 15867002",
       },
       {
         name: "Ashwagandha (Withania somnifera)",
         plain: "An adaptogen that reduces cortisol and oxidative stress while supporting testosterone levels. Well-studied in the Indian medical system.",
         dosage: "300-600 mg/day (standardized root extract, KSM-66)",
         evidence: "Clinical trials show improvements in sperm count, motility, and testosterone in stressed/infertile men.",
+        source: "Ambiye VR, et al. Clinical evaluation of spermatogenic activity of Ashwagandha root extract. Evid Based Complement Alternat Med. 2013;2013:571420.",
+        sourceId: "PMID: 24371462",
       },
       {
         name: "Folic Acid + Vitamin B12",
         plain: "Both B-vitamins are essential for DNA synthesis during the 74-day sperm production cycle. Deficiency increases chromosomal errors.",
         dosage: "Folic acid: 400-800 mcg/day, B12: 1000 mcg/day",
         evidence: "Combined supplementation improves sperm count and reduces DNA fragmentation.",
+        source: "Wong WY, et al. Effects of folic acid and zinc sulfate on male factor subfertility. Fertil Steril. 2002;77(3):491-498.",
+        sourceId: "PMID: 11872201",
       },
     ],
   },
@@ -144,7 +157,14 @@ export default function AndrologistSection() {
 
   const toggleItem = (catIdx, itemIdx) => {
     const key = `${catIdx}-${itemIdx}`;
-    setOpenItem(openItem === key ? null : key);
+    const opening = openItem !== key;
+    setOpenItem(opening ? key : null);
+    if (opening) {
+      trackEvent(EVENTS.SUGGESTION_VIEWED, {
+        category: suggestions[catIdx].category,
+        item: suggestions[catIdx].items[itemIdx].name,
+      });
+    }
   };
 
   return (
@@ -343,9 +363,15 @@ export default function AndrologistSection() {
                         </p>
                       )}
                       {item.evidence && (
-                        <p style={{ margin: 0, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "10px 14px", fontSize: 13 }}>
+                        <p style={{ margin: "0 0 12px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "10px 14px", fontSize: 13 }}>
                           <strong style={{ color: "#0d2137" }}>📊 Evidence:</strong>{" "}
                           {item.evidence}
+                        </p>
+                      )}
+                      {item.source && (
+                        <p style={{ margin: 0, fontSize: 11, color: "#94a3b8", fontStyle: "italic", lineHeight: 1.5 }}>
+                          <strong>Source:</strong> {item.source}{" "}
+                          {item.sourceId && <span style={{ color: "#0d7d74", fontStyle: "normal", fontWeight: 600 }}>[{item.sourceId}]</span>}
                         </p>
                       )}
 
@@ -390,6 +416,7 @@ export default function AndrologistSection() {
         href="https://www.formen.health/pages/book-doctor-appointment"
         target="_blank"
         rel="noopener noreferrer"
+        onClick={() => trackEvent(EVENTS.DOCTOR_CTA_CLICKED)}
         style={{
           display: "inline-block",
           background: "#0d9488",

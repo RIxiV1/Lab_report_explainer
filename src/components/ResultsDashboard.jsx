@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import ParameterCard from "./ParameterCard";
+import { trackEvent, EVENTS } from "../lib/analytics";
 
 const CTX_LINES = {
   spermCount: {
@@ -66,11 +67,31 @@ function groupByTimeline(actions) {
   return groups;
 }
 
-export default function ResultsDashboard({ result, snippet, fmCode, onReset, onBackToInput }) {
+function buildWhatsAppText(result, fmCode, verdictLabel) {
+  const params = PARAM_ORDER.map((key) => {
+    const p = result.parameters[key];
+    if (!p) return null;
+    const meta = PARAM_META[key];
+    const statusEmoji = p.status === "NORMAL" ? "✅" : p.status === "WARNING" ? "⚠️" : "🔴";
+    return `${statusEmoji} ${meta.label}: ${p.value}${meta.unit ? " " + meta.unit : ""}`;
+  }).filter(Boolean).join("\n");
+
+  return encodeURIComponent(
+    `My Semen Analysis Results — ${verdictLabel}\n\n${params}\n\nFM Code: ${fmCode}\nAnalysed with ForMen Health Lab Report Explainer\nhttps://formen.health/pages/lab-report-explainer`
+  );
+}
+
+export default function ResultsDashboard({ result, snippet, fmCode, onReset, onBackToInput, onCompare }) {
   const [copied, setCopied] = useState(false);
   const [checkedActions, setCheckedActions] = useState({});
+  const printRef = useRef(null);
   const verdictCfg = VERDICT_CONFIG[result.verdict] || VERDICT_CONFIG.ATTENTION;
   const actionGroups = groupByTimeline(snippet?.actions);
+
+  // Track report view
+  useEffect(() => {
+    trackEvent(EVENTS.REPORT_VIEWED, { verdict: result.verdict, snippetKey: result.snippetKey, fmCode });
+  }, [result, fmCode]);
 
   // Load checked state from localStorage
   useEffect(() => {
@@ -86,6 +107,7 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
     setCheckedActions((prev) => {
       const next = { ...prev, [key]: !prev[key] };
       if (fmCode) localStorage.setItem(`fm_actions_${fmCode}`, JSON.stringify(next));
+      trackEvent(next[key] ? EVENTS.ACTION_CHECKED : EVENTS.ACTION_UNCHECKED, { timeline, index, fmCode });
       return next;
     });
   }
@@ -94,6 +116,7 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
     navigator.clipboard.writeText(fmCode).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      trackEvent(EVENTS.FM_CODE_COPIED, { fmCode });
     }).catch(() => {});
   };
 
@@ -107,6 +130,18 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
     a.href = url; a.download = `${fmCode}.txt`;
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
+    trackEvent(EVENTS.FM_CODE_DOWNLOADED, { fmCode });
+  };
+
+  const handlePDF = () => {
+    trackEvent(EVENTS.PDF_DOWNLOADED, { fmCode });
+    window.print();
+  };
+
+  const handleWhatsApp = () => {
+    trackEvent(EVENTS.WHATSAPP_SHARED, { fmCode });
+    const text = buildWhatsAppText(result, fmCode, verdictCfg.label);
+    window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
   };
 
   // Summary counts
@@ -116,10 +151,10 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
   const criticalCount = paramStatuses.filter((s) => s === "CRITICAL").length;
 
   return (
-    <div style={{ background: "#FAF8F5", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif" }}>
+    <div ref={printRef} style={{ background: "#FAF8F5", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif" }}>
 
       {/* Nav */}
-      <nav style={{ background: "#fff", borderBottom: "1px solid #ece8e3", padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 50 }}>
+      <nav className="no-print" style={{ background: "#fff", borderBottom: "1px solid #ece8e3", padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 50 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 30, height: 30, borderRadius: 7, background: "#0D6E6E", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🔬</div>
           <div>
@@ -127,7 +162,7 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
             <div style={{ fontSize: 11, color: "#999", lineHeight: 1.1 }}>Lab Report Explainer</div>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button onClick={onBackToInput} style={{ background: "none", border: "1.5px solid #ddd", borderRadius: 8, padding: "7px 14px", fontSize: 13, color: "#555", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}>
             ← Edit Details
           </button>
@@ -137,12 +172,21 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
         </div>
       </nav>
 
-      {/* Disclaimer */}
+      {/* Disclaimer + Doctor Badge */}
       <div style={{ background: "#fffbeb", borderBottom: "1px solid #fde68a", padding: "9px 20px", textAlign: "center", fontSize: 12, color: "#92400e" }}>
         <strong>This is an explanation, not a diagnosis.</strong> Always consult a qualified andrologist before making medical decisions.
       </div>
 
       <div style={{ maxWidth: 820, margin: "0 auto", padding: "28px 20px 80px" }}>
+
+        {/* Doctor Review Badge */}
+        <div className="no-print" style={{ display: "flex", alignItems: "center", gap: 10, background: "#fff", border: "1px solid #ece8e3", borderRadius: 12, padding: "10px 16px", marginBottom: 20 }}>
+          <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#e0f7f5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>👨‍⚕️</div>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#0D6E6E" }}>Clinically Reviewed Content</div>
+            <div style={{ fontSize: 11, color: "#888", lineHeight: 1.4 }}>WHO 2021 reference ranges. Narrative reviewed by reproductive health specialists. Updated April 2025.</div>
+          </div>
+        </div>
 
         {/* Verdict */}
         <div style={{ background: verdictCfg.bg, border: `1.5px solid ${verdictCfg.border}`, borderRadius: 18, padding: "28px 24px", marginBottom: 28 }}>
@@ -164,6 +208,19 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Share / PDF / Compare Row */}
+        <div className="no-print" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 28 }}>
+          <button onClick={handlePDF} style={{ display: "flex", alignItems: "center", gap: 6, background: "#fff", border: "1.5px solid #ddd", borderRadius: 10, padding: "9px 16px", fontSize: 13, fontWeight: 600, color: "#555", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+            📄 Download PDF
+          </button>
+          <button onClick={handleWhatsApp} style={{ display: "flex", alignItems: "center", gap: 6, background: "#25D366", border: "none", borderRadius: 10, padding: "9px 16px", fontSize: 13, fontWeight: 600, color: "#fff", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+            💬 Share on WhatsApp
+          </button>
+          <button onClick={onCompare} style={{ display: "flex", alignItems: "center", gap: 6, background: "#fff", border: "1.5px solid #ddd", borderRadius: 10, padding: "9px 16px", fontSize: 13, fontWeight: 600, color: "#555", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+            📊 Compare with Previous
+          </button>
         </div>
 
         {/* Parameter Cards */}
@@ -226,6 +283,7 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
                           type="button"
                           onClick={() => toggleAction(timeline, i)}
                           aria-label={checked ? "Uncheck this step" : "Mark this step as done"}
+                          className="no-print-opacity"
                           style={{ width: 22, height: 22, borderRadius: 6, border: checked ? "none" : "1.5px solid #ccc", background: checked ? "#0D6E6E" : "#fff", flexShrink: 0, marginTop: 1, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "background 0.15s" }}
                         >
                           {checked && <span style={{ color: "#fff", fontSize: 12, lineHeight: 1 }}>✓</span>}
@@ -233,7 +291,10 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
                         <div style={{ flex: 1 }}>
                           <p style={{ fontSize: 14, lineHeight: 1.55, color: "#2d2d2d", margin: 0, textDecoration: checked ? "line-through" : "none" }}>{action.action}</p>
                           {action.fertiQ && (
-                            <a href={FERTIQ_URL} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 8, fontSize: 12, color: "#0D6E6E", textDecoration: "none", background: "#edf5f5", borderRadius: 999, padding: "4px 10px", fontWeight: 600 }}>
+                            <a href={FERTIQ_URL} target="_blank" rel="noopener noreferrer"
+                              onClick={() => trackEvent(EVENTS.FERTIQ_CLICKED, { timeline, fmCode })}
+                              className="no-print"
+                              style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 8, fontSize: 12, color: "#0D6E6E", textDecoration: "none", background: "#edf5f5", borderRadius: 999, padding: "4px 10px", fontWeight: 600 }}>
                               FertiQ by ForMen — View supplement →
                             </a>
                           )}
@@ -254,7 +315,7 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
             <div style={{ fontSize: 22, fontWeight: 800, color: "#0D6E6E", letterSpacing: "0.08em", fontFamily: "monospace" }}>{fmCode}</div>
             <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>Your only key to these results. We don't store your name, email, or phone.</div>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div className="no-print" style={{ display: "flex", gap: 8 }}>
             <button onClick={handleCopy} style={{ background: "#0D6E6E", color: "#fff", border: "none", borderRadius: 9, padding: "9px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
               {copied ? "✓ Copied!" : "Copy Code"}
             </button>
@@ -265,7 +326,7 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
         </div>
 
         {/* Scroll to advanced */}
-        <div style={{ textAlign: "center" }}>
+        <div className="no-print" style={{ textAlign: "center" }}>
           <button
             onClick={() => document.getElementById("andrologist-section")?.scrollIntoView({ behavior: "smooth" })}
             style={{ background: "#0D6E6E", color: "#fff", border: "none", borderRadius: 10, padding: "12px 24px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
