@@ -179,15 +179,6 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
 
       <div style={{ maxWidth: 820, margin: "0 auto", padding: "28px 20px 80px" }}>
 
-        {/* Doctor Review Badge */}
-        <div className="no-print" style={{ display: "flex", alignItems: "center", gap: 10, background: "#fff", border: "1px solid #ece8e3", borderRadius: 12, padding: "10px 16px", marginBottom: 20 }}>
-          <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#e0f7f5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>👨‍⚕️</div>
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#0D6E6E" }}>Clinically Reviewed Content</div>
-            <div style={{ fontSize: 11, color: "#888", lineHeight: 1.4 }}>WHO 2021 reference ranges. Narrative reviewed by reproductive health specialists. Updated April 2025.</div>
-          </div>
-        </div>
-
         {/* Verdict */}
         <div style={{ background: verdictCfg.bg, border: `1.5px solid ${verdictCfg.border}`, borderRadius: 18, padding: "28px 24px", marginBottom: 28 }}>
           <h2 style={{ fontSize: 22, fontWeight: 800, color: verdictCfg.accent, margin: "0 0 10px" }}>{verdictCfg.label}</h2>
