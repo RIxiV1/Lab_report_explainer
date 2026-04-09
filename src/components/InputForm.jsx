@@ -11,7 +11,7 @@ const FIELDS = [
 
 const FM_CODE_REGEX = /^FM-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}$/;
 
-export default function InputForm({ onSubmit, onFMCodeLookup, lookupError }) {
+export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBackToReport }) {
   const [values, setValues]           = useState({});
   const [errors, setErrors]           = useState({});
   const [touched, setTouched]         = useState({});
@@ -107,12 +107,19 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError }) {
       `}</style>
 
       {/* Nav */}
-      <nav style={{ background: "#fff", borderBottom: "1px solid #ece8e3", padding: "12px 20px", display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ width: 30, height: 30, borderRadius: 7, background: "#0D6E6E", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🔬</div>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#0D6E6E", lineHeight: 1.1 }}>ForMen Health</div>
-          <div style={{ fontSize: 11, color: "#999", lineHeight: 1.1 }}>Lab Report Explainer</div>
+      <nav style={{ background: "#fff", borderBottom: "1px solid #ece8e3", padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 30, height: 30, borderRadius: 7, background: "#0D6E6E", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🔬</div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#0D6E6E", lineHeight: 1.1 }}>ForMen Health</div>
+            <div style={{ fontSize: 11, color: "#999", lineHeight: 1.1 }}>Lab Report Explainer</div>
+          </div>
         </div>
+        {onBackToReport && (
+          <button onClick={onBackToReport} style={{ background: "none", border: "1.5px solid #ddd", borderRadius: 8, padding: "7px 14px", fontSize: 13, color: "#555", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}>
+            Back to Report →
+          </button>
+        )}
       </nav>
 
       <div style={{ maxWidth: 680, margin: "0 auto", padding: "36px 20px 80px" }}>

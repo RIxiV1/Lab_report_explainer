@@ -66,7 +66,7 @@ function groupByTimeline(actions) {
   return groups;
 }
 
-export default function ResultsDashboard({ result, snippet, fmCode, onReset }) {
+export default function ResultsDashboard({ result, snippet, fmCode, onReset, onBackToInput }) {
   const [copied, setCopied] = useState(false);
   const [checkedActions, setCheckedActions] = useState({});
   const verdictCfg = VERDICT_CONFIG[result.verdict] || VERDICT_CONFIG.ATTENTION;
@@ -127,9 +127,14 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset }) {
             <div style={{ fontSize: 11, color: "#999", lineHeight: 1.1 }}>Lab Report Explainer</div>
           </div>
         </div>
-        <button onClick={onReset} style={{ background: "none", border: "1.5px solid #ddd", borderRadius: 8, padding: "7px 14px", fontSize: 13, color: "#555", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}>
-          ← New Analysis
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onBackToInput} style={{ background: "none", border: "1.5px solid #ddd", borderRadius: 8, padding: "7px 14px", fontSize: 13, color: "#555", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}>
+            ← Edit Details
+          </button>
+          <button onClick={onReset} style={{ background: "none", border: "1.5px solid #ddd", borderRadius: 8, padding: "7px 14px", fontSize: 13, color: "#555", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}>
+            Start Fresh
+          </button>
+        </div>
       </nav>
 
       {/* Disclaimer */}
@@ -265,7 +270,7 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset }) {
             onClick={() => document.getElementById("andrologist-section")?.scrollIntoView({ behavior: "smooth" })}
             style={{ background: "#0D6E6E", color: "#fff", border: "none", borderRadius: 10, padding: "12px 24px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
           >
-            View Advanced Tests Your Doctor Might Order →
+            View Food, Supplements & Tests That Can Help →
           </button>
         </div>
 

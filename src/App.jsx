@@ -56,6 +56,11 @@ export default function App() {
     setScreen("results");
   }
 
+  function handleBackToInput() {
+    setLookupError("");
+    setScreen("input");
+  }
+
   function handleReset() {
     setReportResult(null);
     setActiveSnippet(null);
@@ -67,7 +72,7 @@ export default function App() {
   return (
     <div style={{ minHeight: "100vh", background: "#FAF8F5" }}>
       {screen === "input" && (
-        <InputForm onSubmit={handleSubmit} onFMCodeLookup={handleFMCodeLookup} lookupError={lookupError} />
+        <InputForm onSubmit={handleSubmit} onFMCodeLookup={handleFMCodeLookup} lookupError={lookupError} onBackToReport={reportResult ? () => setScreen("results") : null} />
       )}
       {screen === "processing" && (
         <ProcessingScreen
@@ -77,7 +82,7 @@ export default function App() {
       )}
       {screen === "results" && reportResult && activeSnippet && (
         <>
-          <ResultsDashboard result={reportResult} snippet={activeSnippet} fmCode={fmCode} onReset={handleReset} />
+          <ResultsDashboard result={reportResult} snippet={activeSnippet} fmCode={fmCode} onReset={handleReset} onBackToInput={handleBackToInput} />
           <AndrologistSection />
         </>
       )}
