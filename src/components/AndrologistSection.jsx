@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { trackEvent, EVENTS } from "../lib/events";
+
 
 const suggestions = [
   {
@@ -161,12 +161,6 @@ export default function AndrologistSection({ verdict }) {
     const key = `${catIdx}-${itemIdx}`;
     const opening = openItem !== key;
     setOpenItem(opening ? key : null);
-    if (opening) {
-      trackEvent(EVENTS.SUGGESTION_VIEWED, {
-        category: suggestions[catIdx].category,
-        item: suggestions[catIdx].items[itemIdx].name,
-      });
-    }
   };
 
   return (
@@ -402,7 +396,6 @@ export default function AndrologistSection({ verdict }) {
         href="https://www.formen.health/pages/book-doctor-appointment"
         target="_blank"
         rel="noopener noreferrer"
-        onClick={() => trackEvent(EVENTS.DOCTOR_CTA_CLICKED)}
         style={{
           display: "inline-block",
           background: "#0d9488",

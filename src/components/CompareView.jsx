@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useFMCode } from "../hooks/useFMCode";
-import { trackEvent, EVENTS } from "../lib/events";
+
 
 const FM_CODE_REGEX = /^FM-[A-Z2-9]{4}-[A-Z2-9]{4}$/;
 
@@ -62,7 +62,6 @@ export default function CompareView({ onBack, initialCode }) {
     if (!a) return;
     const b = loadCode(codeB, setResultB);
     if (!b) return;
-    trackEvent(EVENTS.COMPARISON_VIEWED, { codeA: codeA.trim().toUpperCase(), codeB: codeB.trim().toUpperCase() });
   }
 
   const hasResults = resultA && resultB;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import InputForm from "./components/InputForm";
 import ProcessingScreen from "./components/ProcessingScreen";
 import ResultsDashboard from "./components/ResultsDashboard";
@@ -7,7 +7,6 @@ import CompareView from "./components/CompareView";
 import { analyzeReport } from "./lib/ruleEngine";
 import { snippets } from "./lib/snippets";
 import { useFMCode } from "./hooks/useFMCode";
-import { trackEvent, EVENTS } from "./lib/events";
 
 function getSnippet(snippetKey, urgencyFlag, ageFlag) {
   const base = snippets[snippetKey] || snippets["FALLBACK"];
@@ -31,11 +30,6 @@ export default function App() {
   const [lookupError, setLookupError] = useState("");
   const { generateCode, saveResult, loadResult } = useFMCode();
 
-  // Track screen changes
-  useEffect(() => {
-    trackEvent(EVENTS.SCREEN_CHANGED, { screen });
-  }, [screen]);
-
   function handleSubmit(formData) {
     setLookupError("");
     const result = analyzeReport(formData);
@@ -46,11 +40,6 @@ export default function App() {
     setActiveSnippet(snippet);
     setFmCode(code);
     setScreen("processing");
-    trackEvent(EVENTS.FORM_SUBMITTED, {
-      snippetKey: result.snippetKey,
-      verdict: result.verdict,
-      fmCode: code,
-    });
   }
 
   function handleFMCodeLookup(code) {
@@ -66,7 +55,6 @@ export default function App() {
     setActiveSnippet(snippet);
     setFmCode(code);
     setScreen("results");
-    trackEvent(EVENTS.FM_CODE_LOADED, { fmCode: code });
   }
 
   function handleBackToInput() {

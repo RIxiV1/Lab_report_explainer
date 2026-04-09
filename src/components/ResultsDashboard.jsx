@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import ParameterCard from "./ParameterCard";
-import { trackEvent, EVENTS } from "../lib/events";
 
 const CTX_LINES = {
   spermCount: {
@@ -84,14 +83,8 @@ function buildWhatsAppText(result, fmCode, verdictLabel) {
 export default function ResultsDashboard({ result, snippet, fmCode, onReset, onBackToInput, onCompare }) {
   const [copied, setCopied] = useState(false);
   const [checkedActions, setCheckedActions] = useState({});
-  const printRef = useRef(null);
   const verdictCfg = VERDICT_CONFIG[result.verdict] || VERDICT_CONFIG.ATTENTION;
   const actionGroups = groupByTimeline(snippet?.actions);
-
-  // Track report view
-  useEffect(() => {
-    trackEvent(EVENTS.REPORT_VIEWED, { verdict: result.verdict, snippetKey: result.snippetKey, fmCode });
-  }, [result, fmCode]);
 
   // Load checked state from localStorage
   useEffect(() => {
@@ -107,7 +100,6 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
     setCheckedActions((prev) => {
       const next = { ...prev, [key]: !prev[key] };
       if (fmCode) localStorage.setItem(`fm_actions_${fmCode}`, JSON.stringify(next));
-      trackEvent(next[key] ? EVENTS.ACTION_CHECKED : EVENTS.ACTION_UNCHECKED, { timeline, index, fmCode });
       return next;
     });
   }
@@ -116,7 +108,6 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
     navigator.clipboard.writeText(fmCode).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-      trackEvent(EVENTS.FM_CODE_COPIED, { fmCode });
     }).catch(() => {});
   };
 
@@ -130,16 +121,13 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
     a.href = url; a.download = `${fmCode}.txt`;
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
-    trackEvent(EVENTS.FM_CODE_DOWNLOADED, { fmCode });
   };
 
   const handlePDF = () => {
-    trackEvent(EVENTS.PDF_DOWNLOADED, { fmCode });
     window.print();
   };
 
   const handleWhatsApp = () => {
-    trackEvent(EVENTS.WHATSAPP_SHARED, { fmCode });
     const text = buildWhatsAppText(result, fmCode, verdictCfg.label);
     window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
   };
@@ -151,7 +139,7 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
   const criticalCount = paramStatuses.filter((s) => s === "CRITICAL").length;
 
   return (
-    <div ref={printRef} style={{ background: "#FAF8F5", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif" }}>
+    <div style={{ background: "#FAF8F5", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif" }}>
 
       {/* Nav */}
       <nav className="no-print" style={{ background: "#fff", borderBottom: "1px solid #ece8e3", padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 50 }}>
@@ -283,7 +271,6 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
                           <p style={{ fontSize: 14, lineHeight: 1.55, color: "#2d2d2d", margin: 0, textDecoration: checked ? "line-through" : "none" }}>{action.action}</p>
                           {action.fertiQ && (
                             <a href={FERTIQ_URL} target="_blank" rel="noopener noreferrer"
-                              onClick={() => trackEvent(EVENTS.FERTIQ_CLICKED, { timeline, fmCode })}
                               className="no-print"
                               style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 8, fontSize: 12, color: "#0D6E6E", textDecoration: "none", background: "#edf5f5", borderRadius: 999, padding: "4px 10px", fontWeight: 600 }}>
                               FertiQ by ForMen — View supplement →

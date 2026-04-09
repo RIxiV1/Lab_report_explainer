@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { parseReportText } from "../lib/reportParser";
-import { trackEvent, EVENTS } from "../lib/events";
+
 
 const FIELDS = [
   { key: "spermCount", label: "Sperm Count",          unit: "million/mL", hint: "WHO: ≥ 16 million/mL",      tooltip: "The concentration of sperm per millilitre of semen.",                               min: 0,   max: 500, step: "any", extraNote: null },
@@ -117,8 +117,7 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
     setParseResult(result);
     if (result.foundCount > 0) {
       setValues((prev) => ({ ...prev, ...Object.fromEntries(Object.entries(result.results).map(([k, v]) => [k, String(v)])) }));
-      trackEvent(EVENTS.PASTE_REPORT_USED, { foundCount: result.foundCount, matched: Object.keys(result.results) });
-    }
+}
   }
 
   const filledCount = FIELDS.filter((f) => values[f.key] !== "" && values[f.key] !== undefined).length;

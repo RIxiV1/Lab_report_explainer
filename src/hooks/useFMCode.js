@@ -30,37 +30,6 @@ function loadResult(code) {
   }
 }
 
-function getActiveCode() {
-  return localStorage.getItem("fm_active_code") || null;
-}
-
-function downloadCode(code) {
-  const date = new Date().toLocaleDateString("en-IN", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-  const content = `Your FM Lab Report Code: ${code}
-Generated: ${date}
-
-To access your results:
-Visit the FM Lab Report Explainer and enter this code on the home screen.
-
-Important: Results are stored only on the device where you first generated them. This code will not work on a different device.
-
-ForMen Health — formen.health`;
-
-  const blob = new Blob([content], { type: "text/plain" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${code}.txt`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
 export function useFMCode() {
-  return { generateCode, saveResult, loadResult, getActiveCode, downloadCode };
+  return { generateCode, saveResult, loadResult };
 }
