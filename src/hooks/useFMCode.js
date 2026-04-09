@@ -25,7 +25,7 @@ function loadResult(code) {
   try {
     const raw = localStorage.getItem("fm_result_" + code);
     return raw ? JSON.parse(raw) : null;
-  } catch {
+  } catch (e) {
     return null;
   }
 }

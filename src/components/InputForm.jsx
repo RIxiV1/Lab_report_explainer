@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { parseReportText } from "../lib/reportParser";
-import { trackEvent, EVENTS } from "../lib/analytics";
+import { trackEvent, EVENTS } from "../lib/events";
 
 const FIELDS = [
   { key: "spermCount", label: "Sperm Count",          unit: "million/mL", hint: "WHO: ≥ 16 million/mL",      tooltip: "The concentration of sperm per millilitre of semen.",                               min: 0,   max: 500, step: "any", extraNote: null },
@@ -17,11 +17,11 @@ const DRAFT_KEY = "fm_input_draft";
 function loadDraft() {
   try {
     return JSON.parse(localStorage.getItem(DRAFT_KEY) || "{}");
-  } catch { return {}; }
+  } catch (e) { return {}; }
 }
 
 function saveDraft(data) {
-  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(data)); } catch {}
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(data)); } catch (e) {}
 }
 
 export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBackToReport }) {

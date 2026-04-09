@@ -7,7 +7,7 @@ import CompareView from "./components/CompareView";
 import { analyzeReport } from "./lib/ruleEngine";
 import { snippets } from "./lib/snippets";
 import { useFMCode } from "./hooks/useFMCode";
-import { trackEvent, EVENTS } from "./lib/analytics";
+import { trackEvent, EVENTS } from "./lib/events";
 
 function getSnippet(snippetKey, urgencyFlag, ageFlag) {
   const base = snippets[snippetKey] || snippets["FALLBACK"];
@@ -103,7 +103,7 @@ export default function App() {
             onBackToInput={handleBackToInput}
             onCompare={() => setScreen("compare")}
           />
-          <AndrologistSection />
+          <AndrologistSection verdict={reportResult.verdict} />
         </>
       )}
       {screen === "compare" && (

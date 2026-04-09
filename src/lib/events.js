@@ -7,7 +7,7 @@ const MAX_EVENTS = 500;
 function getEvents() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-  } catch {
+  } catch (e) {
     return [];
   }
 }
@@ -26,7 +26,7 @@ export function trackEvent(name, props = {}) {
   if (events.length > MAX_EVENTS) events.splice(0, events.length - MAX_EVENTS);
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
-  } catch { /* storage full — silently drop */ }
+  } catch (e) { /* storage full — silently drop */ }
 
   // Console in dev only
   if (import.meta.env.DEV) {

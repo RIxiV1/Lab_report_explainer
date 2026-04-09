@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { trackEvent, EVENTS } from "../lib/analytics";
+import { trackEvent, EVENTS } from "../lib/events";
 
 const suggestions = [
   {
@@ -151,7 +151,9 @@ const suggestions = [
   },
 ];
 
-export default function AndrologistSection() {
+export default function AndrologistSection({ verdict }) {
+  const showTests = verdict === "ATTENTION" || verdict === "ACT_NOW";
+  const visibleSuggestions = showTests ? suggestions : suggestions.filter((s) => s.category !== "Tests When Required");
   const [openCategory, setOpenCategory] = useState(0);
   const [openItem, setOpenItem] = useState(null);
 
@@ -207,7 +209,7 @@ export default function AndrologistSection() {
 
       {/* Category Tabs */}
       <div style={{ display: "flex", gap: 10, marginBottom: 28, flexWrap: "wrap" }}>
-        {suggestions.map((cat, catIdx) => {
+        {visibleSuggestions.map((cat, catIdx) => {
           const isActive = openCategory === catIdx;
           return (
             <button
@@ -292,22 +294,6 @@ export default function AndrologistSection() {
                     >
                       {item.name}
                     </span>
-                    {/* Cost badge for tests */}
-                    {item.cost && (
-                      <span
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 600,
-                          background: "#ede9fe",
-                          color: "#7c3aed",
-                          padding: "3px 10px",
-                          borderRadius: 999,
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {item.cost}
-                      </span>
-                    )}
                     {/* Dosage badge for supplements */}
                     {item.dosage && (
                       <span

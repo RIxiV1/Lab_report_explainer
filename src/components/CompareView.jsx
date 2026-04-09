@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useFMCode } from "../hooks/useFMCode";
-import { trackEvent, EVENTS } from "../lib/analytics";
+import { trackEvent, EVENTS } from "../lib/events";
 
 const FM_CODE_REGEX = /^FM-[A-Z2-9]{4}-[A-Z2-9]{4}$/;
 

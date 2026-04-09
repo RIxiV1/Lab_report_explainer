@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import ParameterCard from "./ParameterCard";
-import { trackEvent, EVENTS } from "../lib/analytics";
+import { trackEvent, EVENTS } from "../lib/events";
 
 const CTX_LINES = {
   spermCount: {
@@ -99,7 +99,7 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
     try {
       const saved = JSON.parse(localStorage.getItem(`fm_actions_${fmCode}`) || "{}");
       setCheckedActions(saved);
-    } catch { /* ignore */ }
+    } catch (e) { /* ignore */ }
   }, [fmCode]);
 
   function toggleAction(timeline, index) {
