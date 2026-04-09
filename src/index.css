@@ -8,3 +8,62 @@ body {
   color: #1a1a1a;
   -webkit-font-smoothing: antialiased;
 }
+
+/* Print styles for PDF download */
+@media print {
+  body {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Hide interactive elements */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Keep checkboxes visible but remove interactivity styling */
+  .no-print-opacity {
+    opacity: 1 !important;
+  }
+
+  /* Clean up for print */
+  nav {
+    position: static !important;
+    border-bottom: 2px solid #0D6E6E !important;
+  }
+
+  /* Ensure cards don't break across pages */
+  div[style*="borderRadius"] {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Add page header */
+  @page {
+    margin: 1.5cm;
+    size: A4;
+  }
+
+  /* Ensure all content is visible */
+  div[style*="minHeight: \"100vh\""],
+  div[style*="minHeight:\"100vh\""] {
+    min-height: auto !important;
+  }
+
+  /* Print-friendly colors */
+  a {
+    text-decoration: none !important;
+    color: inherit !important;
+  }
+
+  button {
+    display: none !important;
+  }
+
+  /* But keep checkbox buttons visible in checklist */
+  div[style*="borderRadius: 6"] button,
+  button[aria-label*="step"] {
+    display: flex !important;
+  }
+}
