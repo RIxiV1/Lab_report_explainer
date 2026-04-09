@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useFMCode } from "../hooks/useFMCode";
 
-
 const FM_CODE_REGEX = /^FM-[A-Z2-9]{4}-[A-Z2-9]{4}$/;
 
 const PARAM_ORDER = ["spermCount", "motility", "morphology", "volume", "pH", "wbc"];
@@ -19,6 +18,8 @@ const STATUS_COLORS = {
   WARNING:  { bg: "#fef3c7", color: "#b45309" },
   CRITICAL: { bg: "#ffe4e6", color: "#be123c" },
 };
+
+const STATUS_LABELS = { NORMAL: "Normal", WARNING: "Borderline", CRITICAL: "Critical" };
 
 function getDelta(oldVal, newVal, higherBetter) {
   if (oldVal == null || newVal == null) return null;
@@ -60,15 +61,28 @@ export default function CompareView({ onBack, initialCode }) {
     setError("");
     const a = loadCode(codeA, setResultA);
     if (!a) return;
-    const b = loadCode(codeB, setResultB);
-    if (!b) return;
+    loadCode(codeB, setResultB);
   }
 
   const hasResults = resultA && resultB;
 
+  // Summary counts
+  const improvedCount = hasResults ? PARAM_ORDER.filter((key) => {
+    const a = resultA.parameters[key], b = resultB.parameters[key];
+    if (!a || !b) return false;
+    const rank = { CRITICAL: 0, WARNING: 1, NORMAL: 2 };
+    return rank[b.status] > rank[a.status];
+  }).length : 0;
+
+  const declinedCount = hasResults ? PARAM_ORDER.filter((key) => {
+    const a = resultA.parameters[key], b = resultB.parameters[key];
+    if (!a || !b) return false;
+    const rank = { CRITICAL: 0, WARNING: 1, NORMAL: 2 };
+    return rank[b.status] < rank[a.status];
+  }).length : 0;
+
   return (
     <div style={{ minHeight: "100vh", background: "#FAF8F5", fontFamily: "'DM Sans', sans-serif" }}>
-      {/* Nav */}
       <nav style={{ background: "#fff", borderBottom: "1px solid #ece8e3", padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 30, height: 30, borderRadius: 7, background: "#0D6E6E", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🔬</div>
@@ -82,27 +96,24 @@ export default function CompareView({ onBack, initialCode }) {
         </button>
       </nav>
 
-      <div style={{ maxWidth: 700, margin: "0 auto", padding: "36px 20px 80px" }}>
+      <div style={{ maxWidth: 600, margin: "0 auto", padding: "36px 20px 80px" }}>
         <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0d1f1f", marginBottom: 8 }}>Compare Two Reports</h1>
         <p style={{ fontSize: 14, color: "#666", marginBottom: 28, lineHeight: 1.6 }}>
-          Enter two FM codes to see how your numbers have changed. Perfect for tracking progress after your 90-day improvement plan.
+          Enter two FM codes to see how your numbers have changed.
         </p>
 
-        {/* Code Inputs */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 12, alignItems: "end", marginBottom: 20 }}>
+        {/* Code Inputs — stack on mobile */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: "#888", display: "block", marginBottom: 6 }}>Older Report</label>
-            <input
-              type="text" placeholder="FM-XXXX-XXXX" value={codeA}
+            <input type="text" placeholder="FM-XXXX-XXXX" value={codeA}
               onChange={(e) => { setCodeA(e.target.value); setError(""); }}
               style={{ width: "100%", border: "1.5px solid #ddd", borderRadius: 8, padding: "10px 12px", fontSize: 14, fontFamily: "'DM Sans', sans-serif", background: "#fff", letterSpacing: "0.05em", textTransform: "uppercase", boxSizing: "border-box" }}
             />
           </div>
-          <div style={{ fontSize: 18, color: "#ccc", paddingBottom: 10 }}>vs</div>
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: "#888", display: "block", marginBottom: 6 }}>Newer Report</label>
-            <input
-              type="text" placeholder="FM-XXXX-XXXX" value={codeB}
+            <input type="text" placeholder="FM-XXXX-XXXX" value={codeB}
               onChange={(e) => { setCodeB(e.target.value); setError(""); }}
               style={{ width: "100%", border: "1.5px solid #ddd", borderRadius: 8, padding: "10px 12px", fontSize: 14, fontFamily: "'DM Sans', sans-serif", background: "#fff", letterSpacing: "0.05em", textTransform: "uppercase", boxSizing: "border-box" }}
             />
@@ -115,92 +126,75 @@ export default function CompareView({ onBack, initialCode }) {
           Compare Reports
         </button>
 
-        {/* Results Table */}
+        {/* Results — card-based, mobile-friendly */}
         {hasResults && (
-          <div style={{ background: "#fff", border: "1px solid #ece8e3", borderRadius: 16, overflow: "hidden" }}>
-            {/* Header */}
-            <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr 1fr", padding: "14px 18px", borderBottom: "1px solid #ece8e3", background: "#faf8f5" }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#555" }}>Parameter</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#555", textAlign: "center" }}>Before</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#555", textAlign: "center" }}>After</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#555", textAlign: "center" }}>Change</div>
+          <>
+            {/* Summary */}
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
+              {improvedCount > 0 && (
+                <div style={{ background: "#dcfce7", borderRadius: 999, padding: "6px 14px", fontSize: 13, fontWeight: 600, color: "#15803d" }}>
+                  {improvedCount} improved
+                </div>
+              )}
+              {declinedCount > 0 && (
+                <div style={{ background: "#ffe4e6", borderRadius: 999, padding: "6px 14px", fontSize: 13, fontWeight: 600, color: "#be123c" }}>
+                  {declinedCount} declined
+                </div>
+              )}
+              {improvedCount === 0 && declinedCount === 0 && (
+                <div style={{ background: "#f1f5f9", borderRadius: 999, padding: "6px 14px", fontSize: 13, fontWeight: 600, color: "#64748b" }}>
+                  No status changes
+                </div>
+              )}
             </div>
 
-            {/* Rows */}
-            {PARAM_ORDER.map((key) => {
-              const meta = PARAM_META[key];
-              const pA = resultA.parameters[key];
-              const pB = resultB.parameters[key];
-              if (!pA || !pB) return null;
-              const delta = getDelta(pA.value, pB.value, meta.higherBetter);
-              const colA = STATUS_COLORS[pA.status] || STATUS_COLORS.NORMAL;
-              const colB = STATUS_COLORS[pB.status] || STATUS_COLORS.NORMAL;
-
-              return (
-                <div key={key} style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr 1fr", padding: "14px 18px", borderBottom: "1px solid #f0ebe5", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: "#1a1a1a" }}>{meta.label}</div>
-                    {meta.unit && <div style={{ fontSize: 11, color: "#aaa" }}>{meta.unit}</div>}
-                  </div>
-                  <div style={{ textAlign: "center" }}>
-                    <span style={{ fontSize: 18, fontWeight: 800, color: "#1a1a1a" }}>{pA.value}</span>
-                    <div style={{ marginTop: 4 }}>
-                      <span style={{ fontSize: 10, fontWeight: 600, background: colA.bg, color: colA.color, padding: "2px 8px", borderRadius: 999 }}>{pA.status === "NORMAL" ? "Normal" : pA.status === "WARNING" ? "Borderline" : "Critical"}</span>
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "center" }}>
-                    <span style={{ fontSize: 18, fontWeight: 800, color: "#1a1a1a" }}>{pB.value}</span>
-                    <div style={{ marginTop: 4 }}>
-                      <span style={{ fontSize: 10, fontWeight: 600, background: colB.bg, color: colB.color, padding: "2px 8px", borderRadius: 999 }}>{pB.status === "NORMAL" ? "Normal" : pB.status === "WARNING" ? "Borderline" : "Critical"}</span>
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "center" }}>
-                    {delta && (
-                      <span style={{ fontSize: 15, fontWeight: 700, color: delta.color }}>{delta.label}</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Summary */}
-            <div style={{ padding: "16px 18px", background: "#faf8f5" }}>
-              {(() => {
-                const improvedCount = PARAM_ORDER.filter((key) => {
-                  const a = resultA.parameters[key];
-                  const b = resultB.parameters[key];
-                  if (!a || !b) return false;
-                  const statusRank = { CRITICAL: 0, WARNING: 1, NORMAL: 2 };
-                  return statusRank[b.status] > statusRank[a.status];
-                }).length;
-                const declinedCount = PARAM_ORDER.filter((key) => {
-                  const a = resultA.parameters[key];
-                  const b = resultB.parameters[key];
-                  if (!a || !b) return false;
-                  const statusRank = { CRITICAL: 0, WARNING: 1, NORMAL: 2 };
-                  return statusRank[b.status] < statusRank[a.status];
-                }).length;
+            {/* Parameter Cards */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {PARAM_ORDER.map((key) => {
+                const meta = PARAM_META[key];
+                const pA = resultA.parameters[key];
+                const pB = resultB.parameters[key];
+                if (!pA || !pB) return null;
+                const delta = getDelta(pA.value, pB.value, meta.higherBetter);
+                const colA = STATUS_COLORS[pA.status];
+                const colB = STATUS_COLORS[pB.status];
 
                 return (
-                  <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                    {improvedCount > 0 && (
-                      <span style={{ fontSize: 13, fontWeight: 600, color: "#15803d" }}>
-                        {improvedCount} parameter{improvedCount > 1 ? "s" : ""} improved
-                      </span>
-                    )}
-                    {declinedCount > 0 && (
-                      <span style={{ fontSize: 13, fontWeight: 600, color: "#be123c" }}>
-                        {declinedCount} parameter{declinedCount > 1 ? "s" : ""} declined
-                      </span>
-                    )}
-                    {improvedCount === 0 && declinedCount === 0 && (
-                      <span style={{ fontSize: 13, fontWeight: 600, color: "#94a3b8" }}>No status changes between reports</span>
-                    )}
+                  <div key={key} style={{ background: "#fff", border: "1px solid #ece8e3", borderRadius: 14, padding: "16px 18px" }}>
+                    {/* Parameter name + change */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{meta.label}</div>
+                        {meta.unit && <div style={{ fontSize: 11, color: "#aaa" }}>{meta.unit}</div>}
+                      </div>
+                      {delta && (
+                        <span style={{ fontSize: 15, fontWeight: 700, color: delta.color }}>{delta.label}</span>
+                      )}
+                    </div>
+
+                    {/* Before / After row */}
+                    <div style={{ display: "flex", gap: 12 }}>
+                      <div style={{ flex: 1, background: "#faf8f5", borderRadius: 10, padding: "10px 14px", textAlign: "center" }}>
+                        <div style={{ fontSize: 11, color: "#999", marginBottom: 4 }}>Before</div>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: "#1a1a1a" }}>{pA.value}</div>
+                        <div style={{ marginTop: 6 }}>
+                          <span style={{ fontSize: 10, fontWeight: 600, background: colA.bg, color: colA.color, padding: "2px 8px", borderRadius: 999 }}>{STATUS_LABELS[pA.status]}</span>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", color: "#ccc", fontSize: 16 }}>→</div>
+                      <div style={{ flex: 1, background: "#faf8f5", borderRadius: 10, padding: "10px 14px", textAlign: "center" }}>
+                        <div style={{ fontSize: 11, color: "#999", marginBottom: 4 }}>After</div>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: "#1a1a1a" }}>{pB.value}</div>
+                        <div style={{ marginTop: 6 }}>
+                          <span style={{ fontSize: 10, fontWeight: 600, background: colB.bg, color: colB.color, padding: "2px 8px", borderRadius: 999 }}>{STATUS_LABELS[pB.status]}</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 );
-              })()}
+              })}
             </div>
-          </div>
+          </>
         )}
       </div>
     </div>
