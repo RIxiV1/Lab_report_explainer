@@ -1,13 +1,9 @@
-import { useState } from "react";
-
+import { useState, memo } from "react";
 
 const suggestions = [
   {
     category: "Food",
     icon: "🥗",
-    color: "#15803d",
-    bg: "#f0fdf4",
-    border: "#bbf7d0",
     items: [
       {
         name: "Zinc-Rich Foods",
@@ -50,9 +46,6 @@ const suggestions = [
   {
     category: "Supplements",
     icon: "💊",
-    color: "#0d7d74",
-    bg: "#f0fdfa",
-    border: "#99f6e4",
     items: [
       {
         name: "Coenzyme Q10 (CoQ10)",
@@ -107,9 +100,6 @@ const suggestions = [
   {
     category: "Tests When Required",
     icon: "🔬",
-    color: "#7c3aed",
-    bg: "#f5f3ff",
-    border: "#c4b5fd",
     items: [
       {
         name: "DNA Fragmentation Index (DFI)",
@@ -151,50 +141,32 @@ const suggestions = [
   },
 ];
 
-export default function AndrologistSection({ verdict }) {
+const TAB_STYLES = {
+  Food:                  { active: "border-green-300 bg-green-50 text-green-700 font-bold", inactive: "border-gray-200 bg-white text-gray-500" },
+  Supplements:           { active: "border-teal-300 bg-teal-50 text-teal-700 font-bold",   inactive: "border-gray-200 bg-white text-gray-500" },
+  "Tests When Required": { active: "border-purple-300 bg-purple-50 text-purple-700 font-bold", inactive: "border-gray-200 bg-white text-gray-500" },
+};
+
+const ITEM_STYLES = {
+  Food:                  { openBorder: "border-green-600", openBg: "bg-green-50",   closedBorder: "border-gray-200" },
+  Supplements:           { openBorder: "border-teal-600",  openBg: "bg-teal-50",    closedBorder: "border-gray-200" },
+  "Tests When Required": { openBorder: "border-purple-600", openBg: "bg-purple-50", closedBorder: "border-gray-200" },
+};
+
+export default memo(function AndrologistSection({ verdict }) {
   const showTests = verdict === "ATTENTION" || verdict === "ACT_NOW";
   const visibleSuggestions = showTests ? suggestions : suggestions.filter((s) => s.category !== "Tests When Required");
   const [openCategory, setOpenCategory] = useState(0);
   const [openItem, setOpenItem] = useState(null);
 
-  const toggleItem = (catIdx, itemIdx) => {
-    const key = `${catIdx}-${itemIdx}`;
-    const opening = openItem !== key;
-    setOpenItem(opening ? key : null);
-  };
-
   return (
-    <section
-      id="andrologist-section"
-      style={{
-        maxWidth: 780,
-        margin: "0 auto",
-        padding: "48px 20px",
-        fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
-        color: "#1a2332",
-      }}
-    >
+    <section id="andrologist-section" className="max-w-[780px] mx-auto px-5 py-12 text-gray-900">
       {/* Header */}
-      <div style={{ marginBottom: 36 }}>
-        <h2
-          style={{
-            fontSize: 28,
-            fontWeight: 700,
-            margin: "0 0 10px",
-            lineHeight: 1.25,
-            color: "#0d2137",
-          }}
-        >
+      <div className="mb-9">
+        <h2 className="text-[28px] font-bold mb-2.5 leading-tight text-gray-900">
           What Can Help Improve Your Numbers
         </h2>
-        <p
-          style={{
-            fontSize: 15,
-            lineHeight: 1.6,
-            color: "#5a6a7a",
-            margin: 0,
-          }}
-        >
+        <p className="text-[15px] leading-relaxed text-gray-500">
           Based on clinical evidence — here are the foods, supplements, and tests
           that can support your fertility. Small, consistent changes over 90 days
           can make a real difference.
@@ -202,30 +174,21 @@ export default function AndrologistSection({ verdict }) {
       </div>
 
       {/* Category Tabs */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 28, flexWrap: "wrap" }}>
+      <div className="flex gap-2.5 mb-7 flex-wrap" role="tablist" aria-label="Recommendation categories">
         {visibleSuggestions.map((cat, catIdx) => {
           const isActive = openCategory === catIdx;
+          const styles = TAB_STYLES[cat.category] || TAB_STYLES.Food;
           return (
             <button
               key={catIdx}
+              role="tab"
+              aria-selected={isActive}
               onClick={() => { setOpenCategory(catIdx); setOpenItem(null); }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "10px 20px",
-                borderRadius: 999,
-                border: `1.5px solid ${isActive ? cat.border : "#e2e8f0"}`,
-                background: isActive ? cat.bg : "#fff",
-                color: isActive ? cat.color : "#64748b",
-                fontWeight: isActive ? 700 : 500,
-                fontSize: 14,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                transition: "all 0.2s",
-              }}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-full border-[1.5px] text-sm cursor-pointer transition-all ${
+                isActive ? styles.active : styles.inactive
+              }`}
             >
-              <span style={{ fontSize: 16 }}>{cat.icon}</span>
+              <span className="text-base">{cat.icon}</span>
               {cat.category}
             </button>
           );
@@ -233,139 +196,81 @@ export default function AndrologistSection({ verdict }) {
       </div>
 
       {/* Active Category Items */}
-      {suggestions.map((cat, catIdx) => {
+      {visibleSuggestions.map((cat, catIdx) => {
         if (catIdx !== openCategory) return null;
+        const itemStyles = ITEM_STYLES[cat.category] || ITEM_STYLES.Food;
         return (
-          <div key={catIdx} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div key={catIdx} role="tabpanel" className="flex flex-col gap-2.5">
             {cat.items.map((item, itemIdx) => {
               const key = `${catIdx}-${itemIdx}`;
               const isOpen = openItem === key;
               return (
                 <div
                   key={itemIdx}
-                  style={{
-                    border: `1px solid ${isOpen ? cat.color : "#e2e8f0"}`,
-                    borderRadius: 12,
-                    overflow: "hidden",
-                    background: isOpen ? cat.bg : "#fff",
-                    transition: "border-color 0.2s, background 0.2s",
-                  }}
+                  className={`border rounded-xl overflow-hidden transition-all ${
+                    isOpen ? `${itemStyles.openBorder} ${itemStyles.openBg}` : `${itemStyles.closedBorder} bg-white`
+                  }`}
                 >
-                  {/* Item Header */}
                   <button
-                    onClick={() => toggleItem(catIdx, itemIdx)}
-                    style={{
-                      width: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      padding: "14px 16px",
-                      border: "none",
-                      background: "none",
-                      cursor: "pointer",
-                      textAlign: "left",
-                      fontFamily: "inherit",
-                    }}
+                    onClick={() => setOpenItem(isOpen ? null : key)}
+                    aria-expanded={isOpen}
+                    className="w-full flex items-center gap-2.5 p-4 border-none bg-transparent cursor-pointer text-left"
                   >
-                    <span
-                      style={{
-                        transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
-                        transition: "transform 0.2s",
-                        fontSize: 14,
-                        color: "#94a3b8",
-                        flexShrink: 0,
-                      }}
-                    >
-                      ▶
+                    <span className={`text-sm text-gray-400 flex-shrink-0 transition-transform ${isOpen ? "rotate-90" : ""}`}>
+                      &#9654;
                     </span>
-                    <span
-                      style={{
-                        fontWeight: 600,
-                        fontSize: 15,
-                        color: "#0d2137",
-                        flex: 1,
-                      }}
-                    >
+                    <span className="font-semibold text-[15px] text-gray-900 flex-1">
                       {item.name}
                     </span>
-                    {/* Dosage badge for supplements */}
                     {item.dosage && (
-                      <span
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 600,
-                          background: "#e0f7f5",
-                          color: "#0d7d74",
-                          padding: "3px 10px",
-                          borderRadius: 999,
-                          whiteSpace: "nowrap",
-                        }}
-                      >
+                      <span className="text-xs font-semibold bg-teal-100 text-teal-700 px-2.5 py-0.5 rounded-full whitespace-nowrap">
                         {item.dosage}
                       </span>
                     )}
                   </button>
 
-                  {/* Expanded Body */}
                   {isOpen && (
-                    <div
-                      style={{
-                        padding: "0 16px 18px 40px",
-                        fontSize: 14,
-                        lineHeight: 1.65,
-                        color: "#374151",
-                      }}
-                    >
-                      <p style={{ margin: "0 0 12px" }}>
-                        <strong style={{ color: "#0d2137" }}>Why it helps:</strong>{" "}
-                        {item.plain}
+                    <div className="px-4 pb-4 pl-10 text-sm leading-relaxed text-gray-700">
+                      <p className="mb-3">
+                        <strong className="text-gray-900">Why it helps:</strong> {item.plain}
                       </p>
 
-                      {/* Food-specific fields */}
                       {item.examples && (
-                        <p style={{ margin: "0 0 12px" }}>
-                          <strong style={{ color: "#0d2137" }}>Best sources:</strong>{" "}
-                          {item.examples}
+                        <p className="mb-3">
+                          <strong className="text-gray-900">Best sources:</strong> {item.examples}
                         </p>
                       )}
                       {item.tip && (
-                        <p style={{ margin: 0, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "10px 14px", fontSize: 13 }}>
-                          <strong style={{ color: "#0d2137" }}>💡 Tip:</strong>{" "}
-                          {item.tip}
+                        <p className="mb-0 bg-white border border-gray-200 rounded-lg p-3 text-[13px]">
+                          <strong className="text-gray-900">Tip:</strong> {item.tip}
                         </p>
                       )}
 
-                      {/* Supplement-specific fields */}
                       {item.dosage && (
-                        <p style={{ margin: "0 0 12px" }}>
-                          <strong style={{ color: "#0d2137" }}>Suggested dosage:</strong>{" "}
-                          {item.dosage}
+                        <p className="mb-3">
+                          <strong className="text-gray-900">Suggested dosage:</strong> {item.dosage}
                         </p>
                       )}
                       {item.evidence && (
-                        <p style={{ margin: "0 0 12px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "10px 14px", fontSize: 13 }}>
-                          <strong style={{ color: "#0d2137" }}>📊 Evidence:</strong>{" "}
-                          {item.evidence}
+                        <p className="mb-3 bg-white border border-gray-200 rounded-lg p-3 text-[13px]">
+                          <strong className="text-gray-900">Evidence:</strong> {item.evidence}
                         </p>
                       )}
                       {item.source && (
-                        <p style={{ margin: 0, fontSize: 11, color: "#94a3b8", fontStyle: "italic", lineHeight: 1.5 }}>
+                        <p className="mb-0 text-[11px] text-gray-400 italic leading-snug">
                           <strong>Source:</strong> {item.source}{" "}
-                          {item.sourceId && <span style={{ color: "#0d7d74", fontStyle: "normal", fontWeight: 600 }}>[{item.sourceId}]</span>}
+                          {item.sourceId && <span className="text-teal-600 not-italic font-semibold">[{item.sourceId}]</span>}
                         </p>
                       )}
 
-                      {/* Test-specific fields */}
                       {item.when && (
-                        <p style={{ margin: "0 0 12px" }}>
-                          <strong style={{ color: "#0d2137" }}>When it's needed:</strong>{" "}
-                          {item.when}
+                        <p className="mb-3">
+                          <strong className="text-gray-900">When it's needed:</strong> {item.when}
                         </p>
                       )}
                       {item.cost && (
-                        <p style={{ margin: 0 }}>
-                          <strong style={{ color: "#0d2137" }}>Estimated cost:</strong>{" "}
-                          {item.cost}
+                        <p className="mb-0">
+                          <strong className="text-gray-900">Estimated cost:</strong> {item.cost}
                         </p>
                       )}
                     </div>
@@ -377,16 +282,8 @@ export default function AndrologistSection({ verdict }) {
         );
       })}
 
-      {/* Disclaimer + CTA */}
-      <p
-        style={{
-          fontSize: 13,
-          color: "#94a3b8",
-          lineHeight: 1.6,
-          marginTop: 32,
-          marginBottom: 20,
-        }}
-      >
+      {/* Disclaimer */}
+      <p className="text-[13px] text-gray-400 leading-relaxed mt-8 mb-5">
         These suggestions are based on published research and WHO guidelines.
         Individual needs vary — always consult a qualified doctor before starting
         supplements or ordering tests.
@@ -396,22 +293,10 @@ export default function AndrologistSection({ verdict }) {
         href="https://www.formen.health/pages/book-doctor-appointment"
         target="_blank"
         rel="noopener noreferrer"
-        style={{
-          display: "inline-block",
-          background: "#0d9488",
-          color: "#fff",
-          fontSize: 15,
-          fontWeight: 600,
-          padding: "13px 28px",
-          borderRadius: 10,
-          textDecoration: "none",
-          transition: "background 0.2s",
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.background = "#0f766e")}
-        onMouseLeave={(e) => (e.currentTarget.style.background = "#0d9488")}
+        className="inline-block bg-teal-600 text-white text-[15px] font-semibold px-7 py-3 rounded-xl no-underline hover:bg-teal-700 transition-colors"
       >
-        Book a Free Doctor Consultation →
+        Book a Free Doctor Consultation &rarr;
       </a>
     </section>
   );
-}
+});

@@ -2,11 +2,40 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: 'DM Sans', sans-serif;
-  background: #FAF8F5;
-  color: #1a1a1a;
-  -webkit-font-smoothing: antialiased;
+@layer base {
+  body {
+    -webkit-font-smoothing: antialiased;
+  }
+
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+  }
+
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-brand-600 text-white rounded-lg text-sm font-semibold cursor-pointer
+           hover:bg-brand-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-white border-[1.5px] border-gray-300 rounded-lg text-[13px] font-medium
+           text-gray-500 cursor-pointer hover:bg-gray-50 transition-colors;
+  }
+
+  .card {
+    @apply bg-white rounded-2xl border border-sand-200 shadow-[0_1px_4px_rgba(0,0,0,0.04)];
+  }
+
+  .fm-input {
+    @apply w-full border-none bg-transparent text-xl font-bold text-gray-900
+           focus:outline-none focus:ring-0;
+  }
 }
 
 @media print {

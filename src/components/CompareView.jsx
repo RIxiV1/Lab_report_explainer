@@ -1,35 +1,20 @@
 import { useState } from "react";
 import { useFMCode } from "../hooks/useFMCode";
-
-const FM_CODE_REGEX = /^FM-[A-Z2-9]{4}-[A-Z2-9]{4}$/;
-
-const PARAM_ORDER = ["spermCount", "motility", "morphology", "volume", "pH", "wbc"];
-const PARAM_META = {
-  spermCount: { label: "Sperm Count", unit: "million/mL", higherBetter: true },
-  motility:   { label: "Motility",    unit: "%",          higherBetter: true },
-  morphology: { label: "Morphology",  unit: "%",          higherBetter: true },
-  volume:     { label: "Volume",      unit: "mL",         higherBetter: null },
-  pH:         { label: "pH",          unit: "",            higherBetter: null },
-  wbc:        { label: "WBC",         unit: "million/mL",  higherBetter: false },
-};
-
-const STATUS_COLORS = {
-  NORMAL:   { bg: "#dcfce7", color: "#15803d" },
-  WARNING:  { bg: "#fef3c7", color: "#b45309" },
-  CRITICAL: { bg: "#ffe4e6", color: "#be123c" },
-};
+import { PARAM_ORDER, PARAM_META, FM_CODE_REGEX, STATUS_CONFIG } from "../lib/constants";
+import Nav from "./Nav";
 
 const STATUS_LABELS = { NORMAL: "Normal", WARNING: "Borderline", CRITICAL: "Critical" };
+const STATUS_RANK = { CRITICAL: 0, WARNING: 1, NORMAL: 2 };
 
 function getDelta(oldVal, newVal, higherBetter) {
   if (oldVal == null || newVal == null) return null;
   const diff = newVal - oldVal;
-  if (diff === 0) return { label: "No change", color: "#94a3b8" };
+  if (diff === 0) return { label: "No change", color: "text-gray-400" };
   const pct = oldVal !== 0 ? Math.abs((diff / oldVal) * 100).toFixed(0) : "—";
   const arrow = diff > 0 ? "↑" : "↓";
-  let color = "#94a3b8";
-  if (higherBetter === true) color = diff > 0 ? "#15803d" : "#be123c";
-  else if (higherBetter === false) color = diff < 0 ? "#15803d" : "#be123c";
+  let color = "text-gray-400";
+  if (higherBetter === true) color = diff > 0 ? "text-green-700" : "text-red-700";
+  else if (higherBetter === false) color = diff < 0 ? "text-green-700" : "text-red-700";
   return { label: `${arrow} ${pct}%`, color };
 }
 
@@ -59,134 +44,126 @@ export default function CompareView({ onBack, initialCode }) {
 
   function handleCompare() {
     setError("");
-    const a = loadCode(codeA, setResultA);
-    if (!a) return;
+    if (!loadCode(codeA, setResultA)) return;
     loadCode(codeB, setResultB);
   }
 
   const hasResults = resultA && resultB;
 
-  // Summary counts
-  const improvedCount = hasResults ? PARAM_ORDER.filter((key) => {
-    const a = resultA.parameters[key], b = resultB.parameters[key];
-    if (!a || !b) return false;
-    const rank = { CRITICAL: 0, WARNING: 1, NORMAL: 2 };
-    return rank[b.status] > rank[a.status];
-  }).length : 0;
+  const improvedCount = hasResults
+    ? PARAM_ORDER.filter((key) => {
+        const a = resultA.parameters[key], b = resultB.parameters[key];
+        return a && b && STATUS_RANK[b.status] > STATUS_RANK[a.status];
+      }).length
+    : 0;
 
-  const declinedCount = hasResults ? PARAM_ORDER.filter((key) => {
-    const a = resultA.parameters[key], b = resultB.parameters[key];
-    if (!a || !b) return false;
-    const rank = { CRITICAL: 0, WARNING: 1, NORMAL: 2 };
-    return rank[b.status] < rank[a.status];
-  }).length : 0;
+  const declinedCount = hasResults
+    ? PARAM_ORDER.filter((key) => {
+        const a = resultA.parameters[key], b = resultB.parameters[key];
+        return a && b && STATUS_RANK[b.status] < STATUS_RANK[a.status];
+      }).length
+    : 0;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#FAF8F5", fontFamily: "'DM Sans', sans-serif" }}>
-      <nav style={{ background: "#fff", borderBottom: "1px solid #ece8e3", padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 7, background: "#0D6E6E", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🔬</div>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#0D6E6E", lineHeight: 1.1 }}>ForMen Health</div>
-            <div style={{ fontSize: 11, color: "#999", lineHeight: 1.1 }}>Lab Report Explainer</div>
-          </div>
-        </div>
-        <button onClick={onBack} style={{ background: "none", border: "1.5px solid #ddd", borderRadius: 8, padding: "7px 14px", fontSize: 13, color: "#555", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}>
-          ← Back to Report
-        </button>
-      </nav>
+    <div className="min-h-screen bg-cream">
+      <Nav>
+        <button onClick={onBack} className="btn-secondary px-3.5 py-[7px]">&larr; Back to Report</button>
+      </Nav>
 
-      <div style={{ maxWidth: 600, margin: "0 auto", padding: "36px 20px 80px" }}>
-        <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0d1f1f", marginBottom: 8 }}>Compare Two Reports</h1>
-        <p style={{ fontSize: 14, color: "#666", marginBottom: 28, lineHeight: 1.6 }}>
+      <div className="max-w-[600px] mx-auto px-5 pt-9 pb-20">
+        <h1 className="text-2xl font-extrabold text-gray-900 mb-2">Compare Two Reports</h1>
+        <p className="text-sm text-gray-500 mb-7 leading-relaxed">
           Enter two FM codes to see how your numbers have changed.
         </p>
 
-        {/* Code Inputs — stack on mobile */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#888", display: "block", marginBottom: 6 }}>Older Report</label>
-            <input type="text" placeholder="FM-XXXX-XXXX" value={codeA}
-              onChange={(e) => { setCodeA(e.target.value); setError(""); }}
-              style={{ width: "100%", border: "1.5px solid #ddd", borderRadius: 8, padding: "10px 12px", fontSize: 14, fontFamily: "'DM Sans', sans-serif", background: "#fff", letterSpacing: "0.05em", textTransform: "uppercase", boxSizing: "border-box" }}
-            />
-          </div>
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#888", display: "block", marginBottom: 6 }}>Newer Report</label>
-            <input type="text" placeholder="FM-XXXX-XXXX" value={codeB}
-              onChange={(e) => { setCodeB(e.target.value); setError(""); }}
-              style={{ width: "100%", border: "1.5px solid #ddd", borderRadius: 8, padding: "10px 12px", fontSize: 14, fontFamily: "'DM Sans', sans-serif", background: "#fff", letterSpacing: "0.05em", textTransform: "uppercase", boxSizing: "border-box" }}
-            />
-          </div>
+        {/* Code Inputs */}
+        <div className="flex flex-col gap-3 mb-5">
+          {[
+            { label: "Older Report", value: codeA, setter: setCodeA },
+            { label: "Newer Report", value: codeB, setter: setCodeB },
+          ].map((input) => (
+            <div key={input.label}>
+              <label className="text-xs font-semibold text-gray-400 block mb-1.5">{input.label}</label>
+              <input
+                type="text"
+                placeholder="FM-XXXX-XXXX"
+                value={input.value}
+                onChange={(e) => { input.setter(e.target.value); setError(""); }}
+                className="w-full border-[1.5px] border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white tracking-wider uppercase box-border focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/10"
+                aria-label={`${input.label} FM Code`}
+              />
+            </div>
+          ))}
         </div>
 
-        {error && <p style={{ fontSize: 13, color: "#e55", marginBottom: 16 }}>{error}</p>}
+        {error && <p role="alert" className="text-[13px] text-red-500 mb-4">{error}</p>}
 
-        <button onClick={handleCompare} style={{ background: "#0D6E6E", color: "#fff", border: "none", borderRadius: 10, padding: "12px 28px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", marginBottom: 32 }}>
+        <button onClick={handleCompare} className="btn-primary px-7 py-3 text-sm mb-8">
           Compare Reports
         </button>
 
-        {/* Results — card-based, mobile-friendly */}
         {hasResults && (
           <>
-            {/* Summary */}
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
+            {/* Summary Badges */}
+            <div className="flex gap-3 flex-wrap mb-5">
               {improvedCount > 0 && (
-                <div style={{ background: "#dcfce7", borderRadius: 999, padding: "6px 14px", fontSize: 13, fontWeight: 600, color: "#15803d" }}>
+                <div className="bg-green-100 rounded-full px-3.5 py-1.5 text-[13px] font-semibold text-green-700">
                   {improvedCount} improved
                 </div>
               )}
               {declinedCount > 0 && (
-                <div style={{ background: "#ffe4e6", borderRadius: 999, padding: "6px 14px", fontSize: 13, fontWeight: 600, color: "#be123c" }}>
+                <div className="bg-red-100 rounded-full px-3.5 py-1.5 text-[13px] font-semibold text-red-700">
                   {declinedCount} declined
                 </div>
               )}
               {improvedCount === 0 && declinedCount === 0 && (
-                <div style={{ background: "#f1f5f9", borderRadius: 999, padding: "6px 14px", fontSize: 13, fontWeight: 600, color: "#64748b" }}>
+                <div className="bg-gray-100 rounded-full px-3.5 py-1.5 text-[13px] font-semibold text-gray-500">
                   No status changes
                 </div>
               )}
             </div>
 
-            {/* Parameter Cards */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {/* Parameter Comparison Cards */}
+            <div className="flex flex-col gap-3">
               {PARAM_ORDER.map((key) => {
                 const meta = PARAM_META[key];
                 const pA = resultA.parameters[key];
                 const pB = resultB.parameters[key];
                 if (!pA || !pB) return null;
                 const delta = getDelta(pA.value, pB.value, meta.higherBetter);
-                const colA = STATUS_COLORS[pA.status];
-                const colB = STATUS_COLORS[pB.status];
+                const cfgA = STATUS_CONFIG[pA.status];
+                const cfgB = STATUS_CONFIG[pB.status];
 
                 return (
-                  <div key={key} style={{ background: "#fff", border: "1px solid #ece8e3", borderRadius: 14, padding: "16px 18px" }}>
-                    {/* Parameter name + change */}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <div key={key} className="card rounded-2xl p-4">
+                    <div className="flex justify-between items-center mb-3">
                       <div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{meta.label}</div>
-                        {meta.unit && <div style={{ fontSize: 11, color: "#aaa" }}>{meta.unit}</div>}
+                        <div className="text-sm font-bold text-gray-900">{meta.label}</div>
+                        {meta.unit && <div className="text-[11px] text-gray-400">{meta.unit}</div>}
                       </div>
                       {delta && (
-                        <span style={{ fontSize: 15, fontWeight: 700, color: delta.color }}>{delta.label}</span>
+                        <span className={`text-[15px] font-bold ${delta.color}`}>{delta.label}</span>
                       )}
                     </div>
 
-                    {/* Before / After row */}
-                    <div style={{ display: "flex", gap: 12 }}>
-                      <div style={{ flex: 1, background: "#faf8f5", borderRadius: 10, padding: "10px 14px", textAlign: "center" }}>
-                        <div style={{ fontSize: 11, color: "#999", marginBottom: 4 }}>Before</div>
-                        <div style={{ fontSize: 20, fontWeight: 800, color: "#1a1a1a" }}>{pA.value}</div>
-                        <div style={{ marginTop: 6 }}>
-                          <span style={{ fontSize: 10, fontWeight: 600, background: colA.bg, color: colA.color, padding: "2px 8px", borderRadius: 999 }}>{STATUS_LABELS[pA.status]}</span>
+                    <div className="flex gap-3">
+                      <div className="flex-1 bg-cream rounded-xl p-2.5 text-center">
+                        <div className="text-[11px] text-gray-400 mb-1">Before</div>
+                        <div className="text-xl font-extrabold text-gray-900">{pA.value}</div>
+                        <div className="mt-1.5">
+                          <span className={`text-[10px] font-semibold ${cfgA.badgeBg} ${cfgA.badgeText} px-2 py-0.5 rounded-full`}>
+                            {STATUS_LABELS[pA.status]}
+                          </span>
                         </div>
                       </div>
-                      <div style={{ display: "flex", alignItems: "center", color: "#ccc", fontSize: 16 }}>→</div>
-                      <div style={{ flex: 1, background: "#faf8f5", borderRadius: 10, padding: "10px 14px", textAlign: "center" }}>
-                        <div style={{ fontSize: 11, color: "#999", marginBottom: 4 }}>After</div>
-                        <div style={{ fontSize: 20, fontWeight: 800, color: "#1a1a1a" }}>{pB.value}</div>
-                        <div style={{ marginTop: 6 }}>
-                          <span style={{ fontSize: 10, fontWeight: 600, background: colB.bg, color: colB.color, padding: "2px 8px", borderRadius: 999 }}>{STATUS_LABELS[pB.status]}</span>
+                      <div className="flex items-center text-gray-300">&rarr;</div>
+                      <div className="flex-1 bg-cream rounded-xl p-2.5 text-center">
+                        <div className="text-[11px] text-gray-400 mb-1">After</div>
+                        <div className="text-xl font-extrabold text-gray-900">{pB.value}</div>
+                        <div className="mt-1.5">
+                          <span className={`text-[10px] font-semibold ${cfgB.badgeBg} ${cfgB.badgeText} px-2 py-0.5 rounded-full`}>
+                            {STATUS_LABELS[pB.status]}
+                          </span>
                         </div>
                       </div>
                     </div>

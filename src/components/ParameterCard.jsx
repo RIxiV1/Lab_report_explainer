@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, memo } from "react";
+import { STATUS_CONFIG } from "../lib/constants";
 
 const DEEPER_EXPLANATIONS = {
   "Sperm Count": "Sperm concentration tells us how many sperm are available per millilitre. WHO defines ≥16 million/mL as normal, though total count (concentration × volume) is equally important for natural conception.",
@@ -9,58 +10,45 @@ const DEEPER_EXPLANATIONS = {
   "WBC": "White blood cells (pus cells) in semen can indicate infection or inflammation in the reproductive tract. Elevated WBC (>1 million/mL) is called leukocytospermia and is worth investigating with a urologist.",
 };
 
-const STATUS_CONFIG = {
-  NORMAL:   { borderColor: "#16a34a", dotColor: "#16a34a", dotBg: "#dcfce7", label: "Normal" },
-  WARNING:  { borderColor: "#d97706", dotColor: "#b45309", dotBg: "#fef3c7", label: "Borderline" },
-  CRITICAL: { borderColor: "#e11d48", dotColor: "#be123c", dotBg: "#ffe4e6", label: "Act Now" },
-};
-
-export default function ParameterCard({ paramName, value, unit, whoRange, status, contextualizingLine }) {
+export default memo(function ParameterCard({ paramName, value, unit, whoRange, status, contextualizingLine }) {
   const [expanded, setExpanded] = useState(false);
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.NORMAL;
   const deeper = DEEPER_EXPLANATIONS[paramName] || null;
 
   return (
-    <div style={{
-      background: "#fff",
-      borderRadius: 14,
-      border: "1px solid #ece8e3",
-      borderLeft: `3px solid ${cfg.borderColor}`,
-      padding: "16px 16px 14px",
-      boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
-      fontFamily: "'DM Sans', sans-serif",
-    }}>
+    <div className={`card border-l-[3px] ${cfg.border} p-4`}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <span style={{ fontSize: 13, fontWeight: 700, color: "#333" }}>{paramName}</span>
-        <span style={{ fontSize: 11, fontWeight: 600, color: cfg.dotColor, background: cfg.dotBg, padding: "3px 9px", borderRadius: 999 }}>
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[13px] font-bold text-gray-700">{paramName}</span>
+        <span className={`text-[11px] font-semibold ${cfg.badgeText} ${cfg.badgeBg} px-2.5 py-0.5 rounded-full`}>
           {cfg.label}
         </span>
       </div>
 
       {/* Value */}
-      <div style={{ marginBottom: 4 }}>
-        <span style={{ fontSize: 28, fontWeight: 800, color: "#1a1a1a", lineHeight: 1 }}>{value}</span>
-        {unit && <span style={{ fontSize: 12, color: "#aaa", marginLeft: 4 }}>{unit}</span>}
+      <div className="mb-1">
+        <span className="text-[28px] font-extrabold text-gray-900 leading-none">{value}</span>
+        {unit && <span className="text-xs text-gray-400 ml-1">{unit}</span>}
       </div>
 
       {/* WHO range */}
-      <p style={{ fontSize: 11, color: "#bbb", margin: "0 0 10px" }}>WHO: {whoRange}</p>
+      <p className="text-[11px] text-gray-300 mb-2.5">WHO: {whoRange}</p>
 
-      {/* Contextualizing line */}
-      <p style={{ fontSize: 13, color: "#666", lineHeight: 1.5, margin: "0 0 10px" }}>{contextualizingLine}</p>
+      {/* Context line */}
+      <p className="text-[13px] text-gray-500 leading-snug mb-2.5">{contextualizingLine}</p>
 
       {/* Learn more */}
       {deeper && (
         <>
           <button
             onClick={() => setExpanded((p) => !p)}
-            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#0D6E6E", fontWeight: 600, padding: 0, fontFamily: "'DM Sans', sans-serif" }}
+            className="bg-transparent border-none cursor-pointer text-xs text-brand-600 font-semibold p-0"
+            aria-expanded={expanded}
           >
             {expanded ? "Show less ▴" : "Learn more ▾"}
           </button>
           {expanded && (
-            <p style={{ fontSize: 12, color: "#777", lineHeight: 1.6, marginTop: 8, marginBottom: 0, padding: "10px 12px", background: "#fafafa", borderRadius: 8 }}>
+            <p className="text-xs text-gray-500 leading-relaxed mt-2 mb-0 p-2.5 bg-gray-50 rounded-lg">
               {deeper}
             </p>
           )}
@@ -68,4 +56,4 @@ export default function ParameterCard({ paramName, value, unit, whoRange, status
       )}
     </div>
   );
-}
+});

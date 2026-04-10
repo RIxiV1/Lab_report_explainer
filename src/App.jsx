@@ -7,17 +7,18 @@ import CompareView from "./components/CompareView";
 import { analyzeReport } from "./lib/ruleEngine";
 import { snippets } from "./lib/snippets";
 import { useFMCode } from "./hooks/useFMCode";
+import { DRAFT_KEY } from "./lib/constants";
 
 function getSnippet(snippetKey, urgencyFlag, ageFlag) {
   const base = snippets[snippetKey] || snippets["FALLBACK"];
   let combined = { ...base };
   if (urgencyFlag === "HIGH") {
-    const modifier = snippets["HIGH_URGENCY_MODIFIER"];
-    if (modifier) combined = { ...combined, narrative: combined.narrative + " " + modifier.narrative };
+    const mod = snippets["HIGH_URGENCY_MODIFIER"];
+    if (mod) combined = { ...combined, narrative: combined.narrative + " " + mod.narrative };
   }
   if (ageFlag) {
-    const modifier = snippets["AGE_MODIFIER"];
-    if (modifier) combined = { ...combined, narrative: combined.narrative + " " + modifier.narrative };
+    const mod = snippets["AGE_MODIFIER"];
+    if (mod) combined = { ...combined, narrative: combined.narrative + " " + mod.narrative };
   }
   return combined;
 }
@@ -57,23 +58,24 @@ export default function App() {
     setScreen("results");
   }
 
-  function handleBackToInput() {
-    setLookupError("");
-    setScreen("input");
-  }
-
   function handleReset() {
     setReportResult(null);
     setActiveSnippet(null);
     setFmCode(null);
     setLookupError("");
+    try { localStorage.removeItem(DRAFT_KEY); } catch {}
     setScreen("input");
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#FAF8F5" }}>
+    <div className="min-h-screen bg-cream">
       {screen === "input" && (
-        <InputForm onSubmit={handleSubmit} onFMCodeLookup={handleFMCodeLookup} lookupError={lookupError} onBackToReport={reportResult ? () => setScreen("results") : null} />
+        <InputForm
+          onSubmit={handleSubmit}
+          onFMCodeLookup={handleFMCodeLookup}
+          lookupError={lookupError}
+          onBackToReport={reportResult ? () => setScreen("results") : null}
+        />
       )}
       {screen === "processing" && (
         <ProcessingScreen
@@ -88,7 +90,7 @@ export default function App() {
             snippet={activeSnippet}
             fmCode={fmCode}
             onReset={handleReset}
-            onBackToInput={handleBackToInput}
+            onBackToInput={() => { setLookupError(""); setScreen("input"); }}
             onCompare={() => setScreen("compare")}
           />
           <AndrologistSection verdict={reportResult.verdict} />

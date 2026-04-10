@@ -1,101 +1,101 @@
 import { useState, useEffect } from "react";
+import Nav from "./Nav";
 
-const microCopy = [
+const tips = [
   "Did you know? Morphology is the most commonly misread value in semen reports.",
   "Sperm parameters naturally fluctuate. One test is never the full picture.",
   "1 in 7 couples face fertility challenges. You are not alone.",
   "Your FM Code is being created. Save it to return to these results anytime.",
 ];
 
-const TOTAL_MS = 3000;
+const steps = [
+  { label: "Comparing against WHO 2021 reference ranges", threshold: 25 },
+  { label: "Identifying your primary findings", threshold: 55 },
+  { label: "Generating your personalised next steps", threshold: 80 },
+];
+
+const DURATION_MS = 2000;
 
 export default function ProcessingScreen({ onComplete, onBack }) {
-  const [copyIndex, setCopyIndex] = useState(0);
-  const [fadeKey, setFadeKey] = useState(0);
+  const [tipIndex, setTipIndex] = useState(0);
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     const start = Date.now();
 
-    const copyInterval = setInterval(() => {
-      setCopyIndex((p) => (p + 1) % microCopy.length);
-      setFadeKey((p) => p + 1);
-    }, 2500);
+    const tipTimer = setInterval(() => {
+      setTipIndex((p) => (p + 1) % tips.length);
+    }, 2200);
 
-    const progressInterval = setInterval(() => {
-      const pct = Math.min(((Date.now() - start) / TOTAL_MS) * 100, 100);
+    const progressTimer = setInterval(() => {
+      const pct = Math.min(((Date.now() - start) / DURATION_MS) * 100, 100);
       setProgress(pct);
-    }, 200);
+    }, 50);
 
-    const completeTimer = setTimeout(() => onComplete?.(), TOTAL_MS);
+    const doneTimer = setTimeout(() => onComplete?.(), DURATION_MS);
 
     return () => {
-      clearInterval(copyInterval);
-      clearInterval(progressInterval);
-      clearTimeout(completeTimer);
+      clearInterval(tipTimer);
+      clearInterval(progressTimer);
+      clearTimeout(doneTimer);
     };
   }, [onComplete]);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#FAF8F5", display: "flex", flexDirection: "column" }}>
-      <style>{`
-        @keyframes fm-fadeup { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-        .fm-micro { animation: fm-fadeup 0.4s ease; }
-      `}</style>
-
-      {/* Nav with back */}
-      <nav style={{ background: "#fff", borderBottom: "1px solid #ece8e3", padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 7, background: "#0D6E6E", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🔬</div>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#0D6E6E", lineHeight: 1.1 }}>ForMen Health</div>
-            <div style={{ fontSize: 11, color: "#999", lineHeight: 1.1 }}>Lab Report Explainer</div>
-          </div>
-        </div>
-        <button onClick={onBack} style={{ background: "none", border: "1.5px solid #ddd", borderRadius: 8, padding: "7px 14px", fontSize: 13, color: "#555", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}>
-          ← Go back
-        </button>
-      </nav>
+    <div className="min-h-screen bg-cream flex flex-col">
+      <Nav>
+        <button onClick={onBack} className="btn-secondary px-3.5 py-[7px]">&larr; Go back</button>
+      </Nav>
 
       {/* Progress bar */}
-      <div style={{ height: 3, background: "#e8e3dd" }}>
-        <div style={{ height: "100%", background: "#0D6E6E", width: `${progress}%`, transition: "width 0.2s linear" }} />
+      <div className="h-[3px] bg-sand-300">
+        <div
+          className="h-full bg-brand-600 transition-[width] duration-100 ease-linear"
+          style={{ width: `${progress}%` }}
+        />
       </div>
 
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 24px" }}>
-        <div style={{ textAlign: "center", maxWidth: 440, fontFamily: "'DM Sans', sans-serif" }}>
+      <div className="flex-1 flex items-center justify-center px-6 py-10">
+        <div className="text-center max-w-[440px]">
+          <h2 className="text-[22px] font-bold text-gray-900 mb-2">Analysing your report…</h2>
+          <p className="text-sm text-gray-400 mb-8">This only takes a moment.</p>
 
-          <h2 style={{ fontSize: 22, fontWeight: 700, color: "#1a1a1a", marginBottom: 8 }}>
-            Analysing your report…
-          </h2>
-          <p style={{ fontSize: 14, color: "#999", marginBottom: 32 }}>This only takes a moment.</p>
-
-          <div style={{ background: "#fff", border: "1px solid #ece8e3", borderRadius: 14, padding: "20px 24px", marginBottom: 28, boxShadow: "0 1px 8px rgba(0,0,0,0.05)" }}>
-            <p key={fadeKey} className="fm-micro" style={{ fontSize: 15, color: "#444", lineHeight: 1.65, margin: 0 }}>
-              💡 {microCopy[copyIndex]}
+          {/* Tip card */}
+          <div className="card p-5 mb-7 shadow-sm">
+            <p key={tipIndex} className="text-[15px] text-gray-600 leading-relaxed animate-fade-up">
+              💡 {tips[tipIndex]}
             </p>
           </div>
 
-          {/* Progress steps */}
-          {[
-            { label: "Comparing against WHO 2021 reference ranges", done: progress > 30 },
-            { label: "Identifying your primary findings", done: progress > 60 },
-            { label: "Generating your personalised next steps", done: progress > 85 },
-          ].map((step, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, textAlign: "left" }}>
-              <div style={{ width: 20, height: 20, borderRadius: "50%", flexShrink: 0, background: step.done ? "#0D6E6E" : "#e8e3dd", display: "flex", alignItems: "center", justifyContent: "center", transition: "background 0.4s" }}>
-                {step.done && <span style={{ color: "#fff", fontSize: 11, lineHeight: 1 }}>✓</span>}
-              </div>
-              <span style={{ fontSize: 13, color: step.done ? "#0D6E6E" : "#bbb", fontWeight: step.done ? 500 : 400, transition: "color 0.4s" }}>
-                {step.label}
-              </span>
-            </div>
-          ))}
+          {/* Steps */}
+          <div className="text-left inline-block">
+            {steps.map((step, i) => {
+              const done = progress > step.threshold;
+              return (
+                <div key={i} className="flex items-center gap-2.5 mb-2.5">
+                  <div
+                    className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center transition-colors duration-300 ${
+                      done ? "bg-brand-600" : "bg-sand-300"
+                    }`}
+                  >
+                    {done && <span className="text-white text-[11px] leading-none">✓</span>}
+                  </div>
+                  <span
+                    className={`text-[13px] transition-colors duration-300 ${
+                      done ? "text-brand-600 font-medium" : "text-gray-300"
+                    }`}
+                  >
+                    {step.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
 
           {/* Skip */}
           <button
             onClick={() => onComplete?.()}
-            style={{ marginTop: 20, background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#aaa", fontFamily: "'DM Sans', sans-serif" }}
+            className="mt-5 bg-transparent border-none cursor-pointer text-[13px] text-gray-400 hover:text-gray-600 transition-colors"
           >
             Skip →
           </button>

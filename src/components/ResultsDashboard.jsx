@@ -1,5 +1,10 @@
 import { useState, useEffect } from "react";
 import ParameterCard from "./ParameterCard";
+import Nav from "./Nav";
+import {
+  PARAM_ORDER, PARAM_META, VERDICT_CONFIG,
+  TIMELINE_ORDER, FERTIQ_URL,
+} from "../lib/constants";
 
 const CTX_LINES = {
   spermCount: {
@@ -34,27 +39,6 @@ const CTX_LINES = {
   },
 };
 
-const PARAM_META = {
-  spermCount: { label: "Sperm Count", unit: "million/mL", whoRange: "≥ 16 million/mL" },
-  motility:   { label: "Motility",    unit: "%",          whoRange: "≥ 42%" },
-  morphology: { label: "Morphology",  unit: "%",          whoRange: "≥ 4% (Kruger)" },
-  volume:     { label: "Volume",      unit: "mL",         whoRange: "1.4 – 7.6 mL" },
-  pH:         { label: "pH",          unit: "",           whoRange: "7.2 – 8.0" },
-  wbc:        { label: "WBC",         unit: "million/mL", whoRange: "< 1 million/mL" },
-};
-
-const PARAM_ORDER = ["spermCount", "motility", "morphology", "volume", "pH", "wbc"];
-
-const VERDICT_CONFIG = {
-  ALL_NORMAL: { bg: "#f0fdf4", border: "#16a34a", accent: "#15803d", label: "Looking Good" },
-  ATTENTION:  { bg: "#fffbeb", border: "#d97706", accent: "#b45309", label: "Needs Attention" },
-  ACT_NOW:    { bg: "#fff1f2", border: "#e11d48", accent: "#be123c", label: "Act Now" },
-};
-
-const TIMELINE_ORDER = ["Immediate", "30 Days", "90 Days"];
-
-const FERTIQ_URL = "https://www.formen.health/products/fertiq-male-fertility-supplement?utm_source=lab-report&utm_medium=tool&utm_campaign=fertiq";
-
 function groupByTimeline(actions) {
   const groups = {};
   TIMELINE_ORDER.forEach((t) => (groups[t] = []));
@@ -71,8 +55,8 @@ function buildWhatsAppText(result, fmCode, verdictLabel) {
     const p = result.parameters[key];
     if (!p) return null;
     const meta = PARAM_META[key];
-    const statusEmoji = p.status === "NORMAL" ? "✅" : p.status === "WARNING" ? "⚠️" : "🔴";
-    return `${statusEmoji} ${meta.label}: ${p.value}${meta.unit ? " " + meta.unit : ""}`;
+    const emoji = p.status === "NORMAL" ? "✅" : p.status === "WARNING" ? "⚠️" : "🔴";
+    return `${emoji} ${meta.label}: ${p.value}${meta.unit ? " " + meta.unit : ""}`;
   }).filter(Boolean).join("\n");
 
   return encodeURIComponent(
@@ -86,13 +70,12 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
   const verdictCfg = VERDICT_CONFIG[result.verdict] || VERDICT_CONFIG.ATTENTION;
   const actionGroups = groupByTimeline(snippet?.actions);
 
-  // Load checked state from localStorage
   useEffect(() => {
     if (!fmCode) return;
     try {
       const saved = JSON.parse(localStorage.getItem(`fm_actions_${fmCode}`) || "{}");
       setCheckedActions(saved);
-    } catch (e) { /* ignore */ }
+    } catch {}
   }, [fmCode]);
 
   function toggleAction(timeline, index) {
@@ -104,108 +87,93 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
     });
   }
 
-  const handleCopy = () => {
+  function handleCopy() {
     navigator.clipboard.writeText(fmCode).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }).catch(() => {});
-  };
+  }
 
-  const handleDownload = () => {
+  function handleDownload() {
     const date = new Date().toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" });
     const blob = new Blob([
       `Your FM Lab Report Code: ${fmCode}\nGenerated: ${date}\n\nTo access your results:\nVisit formen.health/pages/lab-report-explainer and enter this code.\n\nNote: Results are stored only on the device where you first generated them.\n\nForMen Health — formen.health`
     ], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = `${fmCode}.txt`;
-    document.body.appendChild(a); a.click(); a.remove();
+    a.href = url;
+    a.download = `${fmCode}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
     URL.revokeObjectURL(url);
-  };
+  }
 
-  const handlePDF = () => {
-    window.print();
-  };
-
-  const handleWhatsApp = () => {
+  function handleWhatsApp() {
     const text = buildWhatsAppText(result, fmCode, verdictCfg.label);
     window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
-  };
+  }
 
-  // Summary counts
   const paramStatuses = PARAM_ORDER.map((k) => result.parameters[k]?.status || "NORMAL");
   const normalCount = paramStatuses.filter((s) => s === "NORMAL").length;
   const warningCount = paramStatuses.filter((s) => s === "WARNING").length;
   const criticalCount = paramStatuses.filter((s) => s === "CRITICAL").length;
 
   return (
-    <div style={{ background: "#FAF8F5", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif" }}>
-
+    <div className="bg-cream min-h-screen">
       {/* Nav */}
-      <nav className="no-print" style={{ background: "#fff", borderBottom: "1px solid #ece8e3", padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 50 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 7, background: "#0D6E6E", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🔬</div>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#0D6E6E", lineHeight: 1.1 }}>ForMen Health</div>
-            <div style={{ fontSize: 11, color: "#999", lineHeight: 1.1 }}>Lab Report Explainer</div>
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button onClick={onBackToInput} style={{ background: "none", border: "1.5px solid #ddd", borderRadius: 8, padding: "7px 14px", fontSize: 13, color: "#555", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}>
-            ← Edit Details
-          </button>
-          <button onClick={onReset} style={{ background: "none", border: "1.5px solid #ddd", borderRadius: 8, padding: "7px 14px", fontSize: 13, color: "#555", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}>
-            Start Fresh
-          </button>
-        </div>
-      </nav>
+      <Nav sticky className="no-print">
+        <button onClick={onBackToInput} className="btn-secondary px-3.5 py-[7px]">&larr; Edit Details</button>
+        <button onClick={onReset} className="btn-secondary px-3.5 py-[7px]">Start Fresh</button>
+      </Nav>
 
-      {/* Disclaimer + Doctor Badge */}
-      <div style={{ background: "#fffbeb", borderBottom: "1px solid #fde68a", padding: "9px 20px", textAlign: "center", fontSize: 12, color: "#92400e" }}>
+      {/* Disclaimer */}
+      <div className="bg-amber-50 border-b border-amber-200 py-2.5 px-5 text-center text-xs text-amber-800" role="alert">
         <strong>This is an explanation, not a diagnosis.</strong> Always consult a qualified andrologist before making medical decisions.
       </div>
 
-      <div style={{ maxWidth: 820, margin: "0 auto", padding: "28px 20px 80px" }}>
-
+      <div className="max-w-[820px] mx-auto px-5 pt-7 pb-20">
         {/* Verdict */}
-        <div style={{ background: verdictCfg.bg, border: `1.5px solid ${verdictCfg.border}`, borderRadius: 18, padding: "28px 24px", marginBottom: 28 }}>
-          <h2 style={{ fontSize: 22, fontWeight: 800, color: verdictCfg.accent, margin: "0 0 10px" }}>{verdictCfg.label}</h2>
+        <div className={`${verdictCfg.bg} border-[1.5px] ${verdictCfg.border} rounded-2xl p-7 mb-7`}>
+          <h2 className={`text-[22px] font-extrabold ${verdictCfg.text} mb-2.5`}>{verdictCfg.label}</h2>
           {snippet?.verdictCard && (
-            <p style={{ fontSize: 15, lineHeight: 1.7, color: "#2d2d2d", margin: "0 0 16px" }}>{snippet.verdictCard}</p>
+            <p className="text-[15px] leading-[1.7] text-gray-800 mb-4">{snippet.verdictCard}</p>
           )}
-
           {/* Summary badges */}
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div className="flex gap-2.5 flex-wrap" aria-label="Parameter summary">
             {[
-              { count: normalCount, label: "Normal", color: "#15803d", bg: "#dcfce7" },
-              { count: warningCount, label: "Borderline", color: "#b45309", bg: "#fef3c7" },
-              { count: criticalCount, label: "Act Now", color: "#be123c", bg: "#ffe4e6" },
+              { count: normalCount, label: "Normal", cls: "bg-green-100 text-green-700" },
+              { count: warningCount, label: "Borderline", cls: "bg-amber-100 text-amber-700" },
+              { count: criticalCount, label: "Act Now", cls: "bg-red-100 text-red-700" },
             ].filter((s) => s.count > 0).map((s) => (
-              <div key={s.label} style={{ background: s.bg, borderRadius: 999, padding: "5px 14px", display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontSize: 16, fontWeight: 800, color: s.color }}>{s.count}</span>
-                <span style={{ fontSize: 12, color: s.color, fontWeight: 500 }}>{s.label}</span>
+              <div key={s.label} className={`${s.cls} rounded-full px-3.5 py-1 flex items-center gap-1.5`}>
+                <span className="text-base font-extrabold">{s.count}</span>
+                <span className="text-xs font-medium">{s.label}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Share / PDF / Compare Row */}
-        <div className="no-print" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 28 }}>
-          <button onClick={handlePDF} style={{ display: "flex", alignItems: "center", gap: 6, background: "#fff", border: "1.5px solid #ddd", borderRadius: 10, padding: "9px 16px", fontSize: 13, fontWeight: 600, color: "#555", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
-            📄 Download PDF
+        {/* Action Bar */}
+        <div className="no-print flex gap-2 flex-wrap mb-7">
+          <button onClick={() => window.print()} className="btn-secondary flex items-center gap-1.5 px-4 py-2.5">
+            Download PDF
           </button>
-          <button onClick={handleWhatsApp} style={{ display: "flex", alignItems: "center", gap: 6, background: "#25D366", border: "none", borderRadius: 10, padding: "9px 16px", fontSize: 13, fontWeight: 600, color: "#fff", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
-            💬 Share on WhatsApp
+          <button
+            onClick={handleWhatsApp}
+            className="bg-[#25D366] text-white border-none rounded-xl px-4 py-2.5 text-[13px] font-semibold cursor-pointer flex items-center gap-1.5"
+          >
+            Share on WhatsApp
           </button>
-          <button onClick={onCompare} style={{ display: "flex", alignItems: "center", gap: 6, background: "#fff", border: "1.5px solid #ddd", borderRadius: 10, padding: "9px 16px", fontSize: 13, fontWeight: 600, color: "#555", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
-            📊 Compare with Previous
+          <button onClick={onCompare} className="btn-secondary flex items-center gap-1.5 px-4 py-2.5">
+            Compare with Previous
           </button>
         </div>
 
         {/* Parameter Cards */}
-        <div style={{ marginBottom: 36 }}>
-          <h3 style={{ fontSize: 18, fontWeight: 800, color: "#1a1a1a", marginBottom: 18 }}>Your Results, Explained</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 14 }}>
+        <section className="mb-9" aria-label="Your results explained">
+          <h3 className="text-lg font-extrabold text-gray-900 mb-4">Your Results, Explained</h3>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-3.5">
             {PARAM_ORDER.map((key) => {
               const p = result.parameters[key];
               if (!p) return null;
@@ -223,57 +191,67 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
               );
             })}
           </div>
-        </div>
+        </section>
 
         {/* Narrative */}
-        <div style={{ marginBottom: 36 }}>
-          <h3 style={{ fontSize: 18, fontWeight: 800, color: "#1a1a1a", marginBottom: 18 }}>What This Means For You</h3>
+        <section className="mb-9" aria-label="What this means for you">
+          <h3 className="text-lg font-extrabold text-gray-900 mb-4">What This Means For You</h3>
 
           {snippet?.morphologyNote && result.parameters.morphology?.status !== "NORMAL" && (
-            <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 12, padding: "14px 18px", marginBottom: 16, fontSize: 14, color: "#1e40af", lineHeight: 1.65 }}>
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 text-sm text-blue-800 leading-relaxed">
               <strong>About your morphology result:</strong> {snippet.morphologyNote}
             </div>
           )}
 
           {snippet?.narrative && (
-            <div style={{ background: "#fff", border: "1px solid #ece8e3", borderRadius: 16, padding: "24px 22px", boxShadow: "0 1px 8px rgba(0,0,0,0.04)" }}>
-              <p style={{ fontSize: 17, lineHeight: 1.8, color: "#2D2D2D", margin: 0 }}>{snippet.narrative}</p>
+            <div className="card p-6">
+              <p className="text-[17px] leading-[1.8] text-gray-800">{snippet.narrative}</p>
             </div>
           )}
-        </div>
+        </section>
 
-        {/* Next Steps — interactive checklist */}
-        <div style={{ marginBottom: 40 }}>
-          <h3 style={{ fontSize: 18, fontWeight: 800, color: "#1a1a1a", marginBottom: 20 }}>Your Next Steps</h3>
+        {/* Next Steps Checklist */}
+        <section className="mb-10" aria-label="Your next steps">
+          <h3 className="text-lg font-extrabold text-gray-900 mb-5">Your Next Steps</h3>
 
           {TIMELINE_ORDER.map((timeline) => {
             const items = actionGroups[timeline];
             if (!items || items.length === 0) return null;
             return (
-              <div key={timeline} style={{ marginBottom: 24 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#0D6E6E", marginBottom: 12 }}>{timeline}</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div key={timeline} className="mb-6">
+                <div className="text-[13px] font-bold uppercase tracking-wider text-brand-600 mb-3">{timeline}</div>
+                <div className="flex flex-col gap-2.5">
                   {items.map((action, i) => {
                     const key = `${timeline}-${i}`;
                     const checked = !!checkedActions[key];
                     return (
-                      <div key={i} style={{ background: "#fff", border: "1px solid #ece8e3", borderRadius: 12, padding: "16px 18px", display: "flex", gap: 12, alignItems: "flex-start", opacity: checked ? 0.6 : 1, transition: "opacity 0.2s" }}>
+                      <div
+                        key={i}
+                        className={`card rounded-xl p-4 flex gap-3 items-start transition-opacity ${checked ? "opacity-60" : ""}`}
+                      >
                         <button
                           type="button"
                           onClick={() => toggleAction(timeline, i)}
                           aria-label={checked ? "Uncheck this step" : "Mark this step as done"}
-                          className="no-print-opacity"
-                          style={{ width: 22, height: 22, borderRadius: 6, border: checked ? "none" : "1.5px solid #ccc", background: checked ? "#0D6E6E" : "#fff", flexShrink: 0, marginTop: 1, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "background 0.15s" }}
+                          className={`no-print w-[22px] h-[22px] rounded-md flex-shrink-0 mt-0.5 cursor-pointer flex items-center justify-center transition-colors ${
+                            checked ? "bg-brand-600 border-none" : "bg-white"
+                          }`}
+                          style={!checked ? { border: "1.5px solid #ccc" } : undefined}
                         >
-                          {checked && <span style={{ color: "#fff", fontSize: 12, lineHeight: 1 }}>✓</span>}
+                          {checked && <span className="text-white text-xs leading-none">&#10003;</span>}
                         </button>
-                        <div style={{ flex: 1 }}>
-                          <p style={{ fontSize: 14, lineHeight: 1.55, color: "#2d2d2d", margin: 0, textDecoration: checked ? "line-through" : "none" }}>{action.action}</p>
+                        <div className="flex-1">
+                          <p className={`text-sm leading-snug text-gray-800 ${checked ? "line-through" : ""}`}>
+                            {action.action}
+                          </p>
                           {action.fertiQ && (
-                            <a href={FERTIQ_URL} target="_blank" rel="noopener noreferrer"
-                              className="no-print"
-                              style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 8, fontSize: 12, color: "#0D6E6E", textDecoration: "none", background: "#edf5f5", borderRadius: 999, padding: "4px 10px", fontWeight: 600 }}>
-                              FertiQ by ForMen — View supplement →
+                            <a
+                              href={FERTIQ_URL}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="no-print inline-flex items-center gap-1 mt-2 text-xs text-brand-600 bg-brand-50 rounded-full px-2.5 py-1 font-semibold no-underline hover:bg-brand-600/10"
+                            >
+                              FertiQ by ForMen — View supplement &rarr;
                             </a>
                           )}
                         </div>
@@ -284,35 +262,34 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
               </div>
             );
           })}
-        </div>
+        </section>
 
-        {/* FM Code — at the bottom, after user has read their results */}
-        <div style={{ background: "#fff", border: "1.5px solid #a7f3d0", borderRadius: 16, padding: "20px 22px", marginBottom: 32, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ fontSize: 12, color: "#059669", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Save Your FM Code</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#0D6E6E", letterSpacing: "0.08em", fontFamily: "monospace" }}>{fmCode}</div>
-            <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>Your only key to these results. We don't store your name, email, or phone.</div>
+        {/* FM Code */}
+        <div className="bg-white border-[1.5px] border-green-300 rounded-2xl p-5 mb-8 flex items-center gap-4 flex-wrap">
+          <div className="flex-1 min-w-[200px]">
+            <div className="text-xs text-green-600 font-semibold uppercase tracking-wider mb-1">Save Your FM Code</div>
+            <div className="text-[22px] font-extrabold text-brand-600 tracking-widest font-mono">{fmCode}</div>
+            <div className="text-xs text-gray-400 mt-1">Your only key to these results. We don't store your name, email, or phone.</div>
           </div>
-          <div className="no-print" style={{ display: "flex", gap: 8 }}>
-            <button onClick={handleCopy} style={{ background: "#0D6E6E", color: "#fff", border: "none", borderRadius: 9, padding: "9px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+          <div className="no-print flex gap-2">
+            <button onClick={handleCopy} className="btn-primary px-4 py-2.5">
               {copied ? "✓ Copied!" : "Copy Code"}
             </button>
-            <button onClick={handleDownload} style={{ background: "#fff", color: "#0D6E6E", border: "1.5px solid #0D6E6E", borderRadius: 9, padding: "9px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+            <button onClick={handleDownload} className="btn-secondary px-4 py-2.5 !text-brand-600 !border-brand-600">
               Download
             </button>
           </div>
         </div>
 
-        {/* Scroll to advanced */}
-        <div className="no-print" style={{ textAlign: "center" }}>
+        {/* Scroll CTA */}
+        <div className="no-print text-center">
           <button
             onClick={() => document.getElementById("andrologist-section")?.scrollIntoView({ behavior: "smooth" })}
-            style={{ background: "#0D6E6E", color: "#fff", border: "none", borderRadius: 10, padding: "12px 24px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
+            className="btn-primary px-6 py-3 text-sm"
           >
-            View Food, Supplements & Tests That Can Help →
+            View Food, Supplements & Tests That Can Help &rarr;
           </button>
         </div>
-
       </div>
     </div>
   );
