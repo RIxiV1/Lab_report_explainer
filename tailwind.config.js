@@ -19,8 +19,8 @@ export default {
         },
       },
       fontFamily: {
-        sans: ["'DM Sans'", "sans-serif"],
-        serif: ["'DM Serif Display'", "serif"],
+        sans: ["'Manrope'", "sans-serif"],
+        serif: ["'Domaine Display'", "Georgia", "serif"],
       },
       keyframes: {
         "fade-up": {
