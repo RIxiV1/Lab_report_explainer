@@ -8,9 +8,7 @@ function randomBlock(len) {
 }
 
 function generateCode() {
-  const code = `FM-${randomBlock(4)}-${randomBlock(4)}`;
-  localStorage.setItem("fm_active_code", code);
-  return code;
+  return `FM-${randomBlock(4)}-${randomBlock(4)}`;
 }
 
 function saveResult(code, resultData) {

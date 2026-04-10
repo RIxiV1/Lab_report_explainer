@@ -1,10 +1,7 @@
 import { useState } from "react";
 import { useFMCode } from "../hooks/useFMCode";
-import { PARAM_ORDER, PARAM_META, FM_CODE_REGEX, STATUS_CONFIG } from "../lib/constants";
+import { PARAM_ORDER, PARAM_META, FM_CODE_REGEX, STATUS_CONFIG, STATUS_LABELS, STATUS_RANK } from "../lib/constants";
 import Nav from "./Nav";
-
-const STATUS_LABELS = { NORMAL: "Normal", WARNING: "Borderline", CRITICAL: "Critical" };
-const STATUS_RANK = { CRITICAL: 0, WARNING: 1, NORMAL: 2 };
 
 function getDelta(oldVal, newVal, higherBetter) {
   if (oldVal == null || newVal == null) return null;

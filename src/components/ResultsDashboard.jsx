@@ -39,6 +39,14 @@ const CTX_LINES = {
   },
 };
 
+const SECTIONS = [
+  { id: "section-results",    label: "Results" },
+  { id: "section-meaning",    label: "What It Means" },
+  { id: "section-next-steps", label: "Next Steps" },
+  { id: "section-fm-code",    label: "Your Code" },
+  { id: "andrologist-section", label: "Improve" },
+];
+
 function groupByTimeline(actions) {
   const groups = {};
   TIMELINE_ORDER.forEach((t) => (groups[t] = []));
@@ -64,11 +72,42 @@ function buildWhatsAppText(result, fmCode, verdictLabel) {
   );
 }
 
+function useScrollSpy(ids) {
+  const [activeId, setActiveId] = useState(ids[0]);
+
+  useEffect(() => {
+    const elements = ids.map((id) => document.getElementById(id)).filter(Boolean);
+    if (elements.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setActiveId(entry.target.id);
+          }
+        }
+      },
+      { rootMargin: "-20% 0px -60% 0px" }
+    );
+
+    elements.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [ids]);
+
+  return activeId;
+}
+
+function scrollToSection(id) {
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 export default function ResultsDashboard({ result, snippet, fmCode, onReset, onBackToInput, onCompare }) {
   const [copied, setCopied] = useState(false);
   const [checkedActions, setCheckedActions] = useState({});
   const verdictCfg = VERDICT_CONFIG[result.verdict] || VERDICT_CONFIG.ATTENTION;
   const actionGroups = groupByTimeline(snippet?.actions);
+  const sectionIds = SECTIONS.map((s) => s.id);
+  const activeSection = useScrollSpy(sectionIds);
 
   useEffect(() => {
     if (!fmCode) return;
@@ -132,14 +171,32 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
         <strong>This is an explanation, not a diagnosis.</strong> Always consult a qualified andrologist before making medical decisions.
       </div>
 
+      {/* Section Nav */}
+      <div className="no-print sticky top-[53px] z-40 bg-cream/95 backdrop-blur-sm border-b border-sand-200">
+        <nav className="max-w-[820px] mx-auto px-5 flex gap-1 overflow-x-auto py-2" aria-label="Page sections">
+          {SECTIONS.map((section) => (
+            <button
+              key={section.id}
+              onClick={() => scrollToSection(section.id)}
+              className={`whitespace-nowrap px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-colors cursor-pointer border-none ${
+                activeSection === section.id
+                  ? "bg-brand-600 text-white"
+                  : "bg-transparent text-gray-400 hover:text-gray-600 hover:bg-sand-200"
+              }`}
+            >
+              {section.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
       <div className="max-w-[820px] mx-auto px-5 pt-7 pb-20">
-        {/* Verdict */}
+        {/* Verdict — always visible, not in section nav */}
         <div className={`${verdictCfg.bg} border-[1.5px] ${verdictCfg.border} rounded-2xl p-7 mb-7`}>
           <h2 className={`text-[22px] font-extrabold ${verdictCfg.text} mb-2.5`}>{verdictCfg.label}</h2>
           {snippet?.verdictCard && (
             <p className="text-[15px] leading-[1.7] text-gray-800 mb-4">{snippet.verdictCard}</p>
           )}
-          {/* Summary badges */}
           <div className="flex gap-2.5 flex-wrap" aria-label="Parameter summary">
             {[
               { count: normalCount, label: "Normal", cls: "bg-green-100 text-green-700" },
@@ -170,8 +227,8 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
           </button>
         </div>
 
-        {/* Parameter Cards */}
-        <section className="mb-9" aria-label="Your results explained">
+        {/* Section: Results */}
+        <section id="section-results" className="mb-9 scroll-mt-28" aria-label="Your results explained">
           <h3 className="text-lg font-extrabold text-gray-900 mb-4">Your Results, Explained</h3>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-3.5">
             {PARAM_ORDER.map((key) => {
@@ -193,8 +250,8 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
           </div>
         </section>
 
-        {/* Narrative */}
-        <section className="mb-9" aria-label="What this means for you">
+        {/* Section: What It Means */}
+        <section id="section-meaning" className="mb-9 scroll-mt-28" aria-label="What this means for you">
           <h3 className="text-lg font-extrabold text-gray-900 mb-4">What This Means For You</h3>
 
           {snippet?.morphologyNote && result.parameters.morphology?.status !== "NORMAL" && (
@@ -210,8 +267,8 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
           )}
         </section>
 
-        {/* Next Steps Checklist */}
-        <section className="mb-10" aria-label="Your next steps">
+        {/* Section: Next Steps */}
+        <section id="section-next-steps" className="mb-10 scroll-mt-28" aria-label="Your next steps">
           <h3 className="text-lg font-extrabold text-gray-900 mb-5">Your Next Steps</h3>
 
           {TIMELINE_ORDER.map((timeline) => {
@@ -264,8 +321,8 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
           })}
         </section>
 
-        {/* FM Code */}
-        <div className="bg-white border-[1.5px] border-green-300 rounded-2xl p-5 mb-8 flex items-center gap-4 flex-wrap">
+        {/* Section: FM Code */}
+        <div id="section-fm-code" className="scroll-mt-28 bg-white border-[1.5px] border-green-300 rounded-2xl p-5 mb-8 flex items-center gap-4 flex-wrap">
           <div className="flex-1 min-w-[200px]">
             <div className="text-xs text-green-600 font-semibold uppercase tracking-wider mb-1">Save Your FM Code</div>
             <div className="text-[22px] font-extrabold text-brand-600 tracking-widest font-mono">{fmCode}</div>
@@ -279,16 +336,6 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
               Download
             </button>
           </div>
-        </div>
-
-        {/* Scroll CTA */}
-        <div className="no-print text-center">
-          <button
-            onClick={() => document.getElementById("andrologist-section")?.scrollIntoView({ behavior: "smooth" })}
-            className="btn-primary px-6 py-3 text-sm"
-          >
-            View Food, Supplements & Tests That Can Help &rarr;
-          </button>
         </div>
       </div>
     </div>

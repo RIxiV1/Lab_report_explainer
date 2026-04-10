@@ -9,12 +9,12 @@ const tips = [
 ];
 
 const steps = [
-  { label: "Comparing against WHO 2021 reference ranges", threshold: 25 },
-  { label: "Identifying your primary findings", threshold: 55 },
+  { label: "Comparing against WHO 2021 reference ranges", threshold: 20 },
+  { label: "Identifying your primary findings", threshold: 50 },
   { label: "Generating your personalised next steps", threshold: 80 },
 ];
 
-const DURATION_MS = 2000;
+const DURATION_MS = 3500;
 
 export default function ProcessingScreen({ onComplete, onBack }) {
   const [tipIndex, setTipIndex] = useState(0);
@@ -25,7 +25,7 @@ export default function ProcessingScreen({ onComplete, onBack }) {
 
     const tipTimer = setInterval(() => {
       setTipIndex((p) => (p + 1) % tips.length);
-    }, 2200);
+    }, 1500);
 
     const progressTimer = setInterval(() => {
       const pct = Math.min(((Date.now() - start) / DURATION_MS) * 100, 100);

@@ -37,3 +37,7 @@ export const STATUS_CONFIG = {
 };
 
 export const TIMELINE_ORDER = ["Immediate", "30 Days", "90 Days"];
+
+export const STATUS_LABELS = { NORMAL: "Normal", WARNING: "Borderline", CRITICAL: "Critical" };
+
+export const STATUS_RANK = { CRITICAL: 0, WARNING: 1, NORMAL: 2 };

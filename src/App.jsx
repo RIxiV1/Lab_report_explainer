@@ -9,18 +9,16 @@ import { snippets } from "./lib/snippets";
 import { useFMCode } from "./hooks/useFMCode";
 import { DRAFT_KEY } from "./lib/constants";
 
+function applyModifier(snippet, key) {
+  const mod = snippets[key];
+  return mod ? { ...snippet, narrative: snippet.narrative + " " + mod.narrative } : snippet;
+}
+
 function getSnippet(snippetKey, urgencyFlag, ageFlag) {
-  const base = snippets[snippetKey] || snippets["FALLBACK"];
-  let combined = { ...base };
-  if (urgencyFlag === "HIGH") {
-    const mod = snippets["HIGH_URGENCY_MODIFIER"];
-    if (mod) combined = { ...combined, narrative: combined.narrative + " " + mod.narrative };
-  }
-  if (ageFlag) {
-    const mod = snippets["AGE_MODIFIER"];
-    if (mod) combined = { ...combined, narrative: combined.narrative + " " + mod.narrative };
-  }
-  return combined;
+  let result = snippets[snippetKey] || snippets["FALLBACK"];
+  if (urgencyFlag === "HIGH") result = applyModifier(result, "HIGH_URGENCY_MODIFIER");
+  if (ageFlag) result = applyModifier(result, "AGE_MODIFIER");
+  return result;
 }
 
 export default function App() {

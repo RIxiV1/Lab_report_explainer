@@ -70,13 +70,16 @@ const WHO_RANGES = {
   wbc:        { whoRange: "< 1 million/mL",  unit: "million/mL" },
 };
 
+import { PARAM_ORDER } from "./constants";
+
+const CORE_PARAMS = ["spermCount", "motility", "morphology"];
+const SECONDARY_PARAMS = ["volume", "pH", "wbc"];
+
 const CRITICAL_PRIORITY = [
   { param: "motility",   key: "CRITICAL_MOTILITY",   label: "Critically low motility" },
   { param: "spermCount", key: "CRITICAL_COUNT",       label: "Critically low sperm count" },
   { param: "morphology", key: "CRITICAL_MORPHOLOGY",  label: "Critically low morphology" },
 ];
-
-const PARAM_KEYS = ["spermCount", "motility", "morphology", "volume", "pH", "wbc"];
 
 export function analyzeReport(inputs) {
   const { volume, pH, ttcMonths, age } = inputs;
@@ -84,7 +87,7 @@ export function analyzeReport(inputs) {
   const parameters = {};
   const statuses = {};
 
-  for (const p of PARAM_KEYS) {
+  for (const p of PARAM_ORDER) {
     const value = inputs[p];
     const status = getStatus(p, value);
     statuses[p] = status;
@@ -94,8 +97,8 @@ export function analyzeReport(inputs) {
   const urgencyFlag = ttcMonths != null && ttcMonths > 12 ? "HIGH" : "NORMAL";
   const ageFlag = age != null && age > 40;
 
-  const criticals = PARAM_KEYS.filter((p) => statuses[p] === "CRITICAL");
-  const warnings = PARAM_KEYS.filter((p) => statuses[p] === "WARNING");
+  const criticals = PARAM_ORDER.filter((p) => statuses[p] === "CRITICAL");
+  const warnings = PARAM_ORDER.filter((p) => statuses[p] === "WARNING");
   const concernCount = criticals.length + warnings.length;
 
   let verdict, snippetKey, primaryIssue;
@@ -103,7 +106,7 @@ export function analyzeReport(inputs) {
   if (criticals.length > 0) {
     verdict = "ACT_NOW";
 
-    const coreCriticals = ["spermCount", "motility", "morphology"].filter((p) => statuses[p] === "CRITICAL");
+    const coreCriticals = CORE_PARAMS.filter((p) => statuses[p] === "CRITICAL");
 
     if (coreCriticals.length === 3) {
       snippetKey = "ALL_THREE_LOW";
@@ -142,7 +145,7 @@ export function analyzeReport(inputs) {
   } else if (warnings.length >= 1) {
     verdict = "ATTENTION";
 
-    const coreWarnings = ["spermCount", "motility", "morphology"].filter((p) => statuses[p] === "WARNING");
+    const coreWarnings = CORE_PARAMS.filter((p) => statuses[p] === "WARNING");
 
     if (coreWarnings.length === 2) {
       if (coreWarnings.includes("spermCount") && coreWarnings.includes("motility")) {
@@ -167,7 +170,7 @@ export function analyzeReport(inputs) {
         primaryIssue = "Borderline morphology";
       }
     } else {
-      const secondary = ["volume", "pH", "wbc"].find((p) => statuses[p] === "WARNING");
+      const secondary = SECONDARY_PARAMS.find((p) => statuses[p] === "WARNING");
       if (secondary === "volume") {
         snippetKey = volume < THRESHOLDS.volume.normalMin ? "LOW_VOLUME" : "HIGH_VOLUME";
         primaryIssue = volume < THRESHOLDS.volume.normalMin ? "Borderline low volume" : "Borderline high volume";
