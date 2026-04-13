@@ -42,27 +42,30 @@ export default function ProcessingScreen({ onComplete, onBack }) {
   }, [onComplete]);
 
   return (
-    <div className="min-h-screen bg-cream flex flex-col">
+    <div className="min-h-screen bg-[#F4FAFB] flex flex-col">
       <Nav>
         <button onClick={onBack} className="btn-secondary px-3.5 py-[7px]">&larr; Go back</button>
       </Nav>
 
-      {/* Progress bar */}
-      <div className="h-[3px] bg-sand-300">
+      {/* Progress bar — editorial thin line */}
+      <div className="h-[2px] bg-[#E3E9EA]">
         <div
-          className="h-full bg-brand-600 transition-[width] duration-100 ease-linear"
-          style={{ width: `${progress}%` }}
+          className="h-full transition-[width] duration-100 ease-linear"
+          style={{
+            width: `${progress}%`,
+            background: 'linear-gradient(90deg, #36458E, #111852)',
+          }}
         />
       </div>
 
       <div className="flex-1 flex items-center justify-center px-6 py-10">
-        <div className="text-center max-w-[440px]">
-          <h2 className="text-[22px] font-bold text-gray-900 mb-2">Analysing your report…</h2>
-          <p className="text-sm text-gray-400 mb-8">This only takes a moment.</p>
+        <div className="text-center max-w-[440px] animate-editorial">
+          <h2 className="font-serif text-[22px] font-bold text-gray-900 mb-2">Analysing your report…</h2>
+          <p className="text-sm text-gray-400 mb-10">This only takes a moment.</p>
 
-          {/* Tip card */}
-          <div className="card p-5 mb-7 shadow-sm">
-            <p key={tipIndex} className="text-[15px] text-gray-600 leading-relaxed animate-fade-up">
+          {/* Tip card — whisper shadow */}
+          <div className="card-tonal p-5 mb-8">
+            <p key={tipIndex} className="text-[15px] text-gray-600 leading-relaxed animate-editorial">
               💡 {tips[tipIndex]}
             </p>
           </div>
@@ -72,16 +75,20 @@ export default function ProcessingScreen({ onComplete, onBack }) {
             {steps.map((step, i) => {
               const done = progress > step.threshold;
               return (
-                <div key={i} className="flex items-center gap-2.5 mb-2.5">
+                <div key={i} className="flex items-center gap-3 mb-3">
                   <div
-                    className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center transition-colors duration-300 ${
-                      done ? "bg-brand-600" : "bg-sand-300"
-                    }`}
+                    className="w-5 h-5 flex-shrink-0 flex items-center justify-center transition-all duration-300"
+                    style={{
+                      background: done
+                        ? 'linear-gradient(135deg, #36458E, #111852)'
+                        : '#E3E9EA',
+                      boxShadow: done ? '0 4px 12px rgba(54,69,142,0.2)' : 'none',
+                    }}
                   >
                     {done && <span className="text-white text-[11px] leading-none">✓</span>}
                   </div>
                   <span
-                    className={`text-[13px] transition-colors duration-300 ${
+                    className={`text-[13px] transition-all duration-300 ${
                       done ? "text-brand-600 font-medium" : "text-gray-300"
                     }`}
                   >
@@ -95,7 +102,7 @@ export default function ProcessingScreen({ onComplete, onBack }) {
           {/* Skip */}
           <button
             onClick={() => onComplete?.()}
-            className="mt-5 bg-transparent border-none cursor-pointer text-[13px] text-gray-400 hover:text-gray-600 transition-colors"
+            className="mt-6 bg-transparent border-none cursor-pointer text-[13px] text-gray-400 hover:text-gray-600 transition-colors"
           >
             Skip →
           </button>

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { parseReportText } from "../lib/reportParser";
-import { INPUT_FIELDS, FM_CODE_REGEX, DRAFT_KEY } from "../lib/constants";
+import { REQUIRED_FIELDS, FM_CODE_REGEX, DRAFT_KEY } from "../lib/constants";
 import Nav from "./Nav";
+import MagicDropzone from "./MagicDropzone";
 
 function loadDraft() {
   try {
@@ -9,35 +9,30 @@ function loadDraft() {
   } catch { return {}; }
 }
 
-function validate(field, raw) {
-  if (raw === "" || raw === undefined) return "Required";
+function validate(field, raw, { requireValue }) {
+  if (raw === "" || raw === undefined) return requireValue ? "Required" : "";
   const v = parseFloat(raw);
   if (isNaN(v)) return "Must be a number";
   if (v < field.min || v > field.max) return `Enter ${field.min}–${field.max}`;
   return "";
 }
 
-export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBackToReport }) {
+export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBackToReport, lastResultDate, onRestoreLastResult }) {
   const draft = useRef(loadDraft()).current;
   const [values, setValues] = useState(draft.values || {});
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+  const [entryMode, setEntryMode] = useState("scan");
   const [activeTooltip, setActiveTooltip] = useState(null);
-  const [showOptional, setShowOptional] = useState(!!(draft.age || draft.monthsTrying));
   const [age, setAge] = useState(draft.age || "");
   const [monthsTrying, setMonthsTrying] = useState(draft.monthsTrying || "");
   const [ageError, setAgeError] = useState("");
   const [monthsError, setMonthsError] = useState("");
-  const [showFMCode, setShowFMCode] = useState(false);
   const [fmCode, setFmCode] = useState("");
   const [fmCodeError, setFmCodeError] = useState("");
-  const [showPaste, setShowPaste] = useState(false);
-  const [pasteText, setPasteText] = useState("");
-  const [parseResult, setParseResult] = useState(null);
   const tooltipRef = useRef(null);
   const draftTimer = useRef(null);
 
-  // Debounced draft persistence
   useEffect(() => {
     clearTimeout(draftTimer.current);
     draftTimer.current = setTimeout(() => {
@@ -46,42 +41,40 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
     return () => clearTimeout(draftTimer.current);
   }, [values, age, monthsTrying]);
 
-  // Close tooltip on outside click
   useEffect(() => {
     function handleClickOutside(e) {
-      if (tooltipRef.current && !tooltipRef.current.contains(e.target))
-        setActiveTooltip(null);
+      if (tooltipRef.current && !tooltipRef.current.contains(e.target)) setActiveTooltip(null);
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleChange = useCallback((field, raw) => {
+  const handleChange = useCallback((field, raw, requireValue) => {
     setValues((p) => ({ ...p, [field.key]: raw }));
     setErrors((p) => {
       if (!p[field.key]) return p;
-      return { ...p, [field.key]: validate(field, raw) };
+      return { ...p, [field.key]: validate(field, raw, { requireValue }) };
     });
   }, []);
 
-  function handleBlur(field) {
+  function handleBlur(field, requireValue) {
     setTouched((p) => ({ ...p, [field.key]: true }));
-    setErrors((p) => ({ ...p, [field.key]: validate(field, values[field.key]) }));
+    setErrors((p) => ({ ...p, [field.key]: validate(field, values[field.key], { requireValue }) }));
   }
 
-  const filledCount = INPUT_FIELDS.filter((f) => values[f.key] !== "" && values[f.key] !== undefined).length;
-  const isValid = INPUT_FIELDS.every((f) => {
+  const filledRequired = REQUIRED_FIELDS.filter((f) => values[f.key] !== "" && values[f.key] !== undefined).length;
+  const isValid = REQUIRED_FIELDS.every((f) => {
     const raw = values[f.key];
-    return raw !== "" && raw !== undefined && validate(f, raw) === "";
+    return raw !== "" && raw !== undefined && validate(f, raw, { requireValue: true }) === "";
   });
 
   function handleSubmit(e) {
     e.preventDefault();
     const newErrors = {};
     const newTouched = {};
-    INPUT_FIELDS.forEach((f) => {
+    REQUIRED_FIELDS.forEach((f) => {
       newTouched[f.key] = true;
-      newErrors[f.key] = validate(f, values[f.key]);
+      newErrors[f.key] = validate(f, values[f.key], { requireValue: true });
     });
     setTouched(newTouched);
     setErrors(newErrors);
@@ -98,11 +91,10 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
     }
     setAgeError(ageErr);
     setMonthsError(monthsErr);
-
-    if (!INPUT_FIELDS.every((f) => newErrors[f.key] === "") || ageErr || monthsErr) return;
+    if (Object.values(newErrors).some((msg) => msg) || ageErr || monthsErr) return;
 
     const formData = {};
-    INPUT_FIELDS.forEach((f) => (formData[f.key] = parseFloat(values[f.key])));
+    REQUIRED_FIELDS.forEach((f) => { formData[f.key] = parseFloat(values[f.key]); });
     if (age !== "") formData.age = parseFloat(age);
     if (monthsTrying !== "") formData.ttcMonths = parseFloat(monthsTrying);
     onSubmit(formData);
@@ -110,197 +102,191 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
 
   function handleFMCodeLoad() {
     const trimmed = fmCode.trim().toUpperCase();
-    if (!FM_CODE_REGEX.test(trimmed)) {
-      setFmCodeError("Invalid format — use FM-XXXX-XXXX");
-      return;
-    }
+    if (!FM_CODE_REGEX.test(trimmed)) { setFmCodeError("Invalid format — use FM-XXXX-XXXX"); return; }
     setFmCodeError("");
     onFMCodeLookup(trimmed);
   }
 
-  function handlePasteAnalyse() {
-    if (!pasteText.trim()) return;
-    const result = parseReportText(pasteText);
-    setParseResult(result);
-    if (result.foundCount > 0) {
-      setValues((prev) => ({
-        ...prev,
-        ...Object.fromEntries(Object.entries(result.results).map(([k, v]) => [k, String(v)])),
-      }));
-    }
+  function handleExtractedData(extractedValues) {
+    setValues((prev) => ({
+      ...prev,
+      ...Object.fromEntries(Object.entries(extractedValues).map(([k, v]) => [k, String(v)])),
+    }));
+    setEntryMode("manual");
   }
 
-  return (
-    <div className="min-h-screen bg-cream">
-      {/* Nav */}
-      <Nav>
-        {onBackToReport && (
-          <button onClick={onBackToReport} className="btn-secondary px-3.5 py-[7px]">
-            Back to Report &rarr;
-          </button>
-        )}
-      </Nav>
+  function handleAnalyzeNow(extractedValues) {
+    const formData = {};
+    for (const [k, v] of Object.entries(extractedValues)) {
+      formData[k] = typeof v === "number" ? v : parseFloat(v);
+    }
+    if (age !== "") formData.age = parseFloat(age);
+    if (monthsTrying !== "") formData.ttcMonths = parseFloat(monthsTrying);
+    onSubmit(formData);
+  }
 
-      <div className="max-w-[680px] mx-auto px-5 pt-9 pb-20">
-        {/* Header */}
-        <header className="text-center mb-8">
-          <h1 className="font-serif text-[clamp(26px,5vw,40px)] text-gray-900 mb-2.5 leading-tight">
-            Understand Your Semen Analysis
-          </h1>
-          <p className="text-sm text-gray-500 max-w-[460px] mx-auto leading-relaxed">
-            Enter your report values. We'll explain every number in plain English and show you exactly what to do next.
-          </p>
-          <p className="text-xs text-gray-400 mt-2.5">
-            Your data stays on your device. We never collect your name, email, or phone number.
-          </p>
-        </header>
-
-        {/* Paste from Report */}
-        <div className="mb-5 text-center">
-          <button
-            type="button"
-            onClick={() => setShowPaste((p) => !p)}
-            className="border-[1.5px] border-dashed border-brand-600 rounded-xl px-5 py-2.5 text-[13px] text-brand-600 font-semibold bg-transparent cursor-pointer hover:bg-brand-50 transition-colors"
-          >
-            {showPaste ? "▾ Hide" : "Paste from your lab report"} — auto-fill values
-          </button>
-
-          {showPaste && (
-            <div className="mt-3 text-left">
-              <textarea
-                value={pasteText}
-                onChange={(e) => { setPasteText(e.target.value); setParseResult(null); }}
-                placeholder={"Paste your lab report text here...\n\nExample:\nSperm Count: 45 million/mL\nTotal Motility: 55%\nMorphology: 5%\nVolume: 3.2 mL\npH: 7.4\nWBC: 0.3 million/mL"}
-                className="w-full min-h-[120px] border-[1.5px] border-gray-300 rounded-xl p-3 text-[13px] resize-y bg-white box-border focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/10"
-                aria-label="Paste lab report text"
-              />
-              <div className="flex items-center gap-3 mt-2">
-                <button type="button" onClick={handlePasteAnalyse} className="btn-primary px-4 py-2">
-                  Extract Values
-                </button>
-                {parseResult && (
-                  <span className={`text-[13px] font-medium ${parseResult.foundCount > 0 ? "text-green-700" : "text-red-500"}`}>
-                    {parseResult.foundCount > 0
-                      ? `Found ${parseResult.foundCount} of 6 values — check and adjust below`
-                      : "Couldn't extract values — please enter manually"}
-                  </span>
-                )}
+  function renderField(field) {
+    const hasError = touched[field.key] && errors[field.key];
+    return (
+      <div key={field.key} className="bg-white p-5 transition-colors hover:bg-[#FAFBFD]">
+        <div className="flex items-center gap-2 mb-3">
+          <label htmlFor={field.key} className="label-clinical">{field.label}</label>
+          <div className="relative ml-auto" ref={activeTooltip === field.key ? tooltipRef : null}>
+            <button
+              type="button"
+              aria-label={`About ${field.label}`}
+              onClick={() => setActiveTooltip(activeTooltip === field.key ? null : field.key)}
+              className="text-[10px] text-gray-400 hover:text-brand-500 cursor-pointer bg-transparent border-none uppercase tracking-wide font-semibold transition-colors"
+            >
+              Info
+            </button>
+            {activeTooltip === field.key && (
+              <div role="tooltip" className="absolute right-0 bottom-[calc(100%+8px)] w-[min(240px,72vw)] bg-brand-900 text-white text-[12px] leading-relaxed p-4 z-50 whisper-shadow-lg" style={{ animation: 'editorial-fade-up 0.2s cubic-bezier(0.2,0,0,1) forwards' }}>
+                {field.tooltip}
               </div>
-            </div>
+            )}
+          </div>
+        </div>
+
+        <div className="relative">
+          <input
+            id={field.key}
+            type="number"
+            inputMode="decimal"
+            step={field.step}
+            placeholder="—"
+            value={values[field.key] ?? ""}
+            onChange={(e) => handleChange(field, e.target.value, true)}
+            onBlur={() => handleBlur(field, true)}
+            className="fm-input"
+            style={field.unit ? { paddingRight: 52 } : undefined}
+            aria-invalid={!!hasError}
+          />
+          {field.unit && (
+            <span className="absolute right-0 top-1/2 -translate-y-1/2 text-[11px] text-gray-400 font-medium pointer-events-none">
+              {field.unit}
+            </span>
           )}
         </div>
 
-        {/* Form Card */}
-        <div className="card p-7">
-          <form onSubmit={handleSubmit} noValidate>
-            {/* Progress Bar */}
-            <div className="flex items-center gap-2.5 mb-4" role="progressbar" aria-valuenow={filledCount} aria-valuemin={0} aria-valuemax={6} aria-label="Form completion">
-              <div className="flex-1 h-1 bg-sand-300 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-300 ${filledCount === 6 ? "bg-green-600" : "bg-brand-600"}`}
-                  style={{ width: `${(filledCount / 6) * 100}%` }}
-                />
-              </div>
-              <span className={`text-xs font-semibold whitespace-nowrap ${filledCount === 6 ? "text-green-600" : "text-gray-400"}`}>
-                {filledCount} of 6
-              </span>
-            </div>
+        <div
+          className="h-[2px] mt-1 transition-all"
+          style={{
+            background: hasError
+              ? '#c2410c'
+              : 'linear-gradient(90deg, rgba(198,197,210,0.25) 0%, rgba(198,197,210,0.08) 100%)',
+          }}
+        />
 
-            {/* Field Grid */}
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3 mb-1">
-              {INPUT_FIELDS.map((field) => {
-                const hasError = touched[field.key] && errors[field.key];
-                return (
+        <p className={`text-[11px] mt-2 ${hasError ? "text-orange-600 font-medium" : "text-gray-400"}`}>
+          {hasError ? errors[field.key] : field.hint}
+        </p>
+        {field.extraNote && !hasError && (
+          <p className="text-[11px] text-gray-400 mt-0.5 italic">{field.extraNote}</p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#F4FAFB]">
+      <Nav>
+        {onBackToReport && (
+          <button onClick={onBackToReport} className="btn-secondary">Back to Report</button>
+        )}
+      </Nav>
+
+      <div className="max-w-[640px] mx-auto px-6 pt-16 pb-24">
+        {/* Header — flush left per design spec */}
+        <header className="mb-14 animate-editorial">
+          <h1 className="font-serif text-[clamp(32px,6vw,48px)] text-gray-900 mb-4 leading-[1.1] tracking-tight">
+            Understand Your<br />Semen Analysis
+          </h1>
+          <p className="text-[15px] text-gray-500 max-w-[440px] leading-relaxed">
+            Enter your report values. We'll explain every number in plain English and show you exactly what to do next.
+          </p>
+          <div className="flex items-center gap-2 mt-6">
+            <div className="w-1.5 h-1.5 bg-wellness-500" style={{ boxShadow: '0 0 6px rgba(139,185,146,0.5)' }} />
+            <span className="text-[11px] text-gray-400 uppercase tracking-wide">Your data stays on your device</span>
+          </div>
+        </header>
+
+        {/* Welcome back banner */}
+        {lastResultDate && onRestoreLastResult && (
+          <div className="bg-brand-50 p-5 mb-12 flex items-center justify-between flex-wrap gap-3 whisper-shadow-sm" style={{ animation: 'editorial-fade-up 0.4s cubic-bezier(0.2,0,0,1) forwards' }}>
+            <div>
+              <p className="text-[13px] font-semibold text-brand-900">Welcome back</p>
+              <p className="text-[12px] text-neutral-600">You have a report from {lastResultDate}.</p>
+            </div>
+            <button onClick={onRestoreLastResult} className="btn-primary py-2.5 px-5 text-[11px]">
+              View Last Report
+            </button>
+          </div>
+        )}
+
+        {/* Segmented Control */}
+        <div className="flex bg-[#E3E9EA] p-[3px] w-full max-w-[380px] mb-12">
+          {[
+            { key: "scan", label: "Smart Scan" },
+            { key: "manual", label: "Manual Entry" },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setEntryMode(tab.key)}
+              className={`flex-1 text-[12px] font-semibold uppercase tracking-clinical py-2.5 transition-all cursor-pointer ${
+                entryMode === tab.key
+                  ? "bg-white text-brand-900"
+                  : "text-gray-500 hover:text-gray-700 bg-transparent"
+              }`}
+              style={entryMode === tab.key ? { boxShadow: '0 4px 12px rgba(17,24,82,0.06)' } : undefined}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Entry view */}
+        {entryMode === "scan" ? (
+          <div className="animate-editorial">
+            <MagicDropzone onExtracted={handleExtractedData} onAnalyzeNow={handleAnalyzeNow} />
+          </div>
+        ) : (
+          <div className="animate-editorial">
+            <form onSubmit={handleSubmit} noValidate>
+              {/* Progress */}
+              <div className="flex items-center gap-3 mb-8">
+                <div className="flex-1 h-[2px] bg-[#E3E9EA] overflow-hidden">
                   <div
-                    key={field.key}
-                    className={`border-[1.5px] rounded-xl p-3 transition-colors focus-within:border-brand-600 ${hasError ? "border-red-400" : "border-sand-300"}`}
-                  >
-                    {/* Label + Tooltip */}
-                    <div className="flex items-center justify-between mb-2">
-                      <label htmlFor={field.key} className="text-xs font-semibold text-gray-500">
-                        {field.label}
-                      </label>
-                      <div className="relative" ref={activeTooltip === field.key ? tooltipRef : null}>
-                        <button
-                          type="button"
-                          aria-label={`What is ${field.label}?`}
-                          aria-expanded={activeTooltip === field.key}
-                          onClick={() => setActiveTooltip(activeTooltip === field.key ? null : field.key)}
-                          className={`w-7 h-7 rounded-full border-none cursor-pointer text-xs font-bold flex items-center justify-center transition-colors ${
-                            activeTooltip === field.key
-                              ? "bg-brand-600 text-white"
-                              : "bg-sand-400 text-gray-500 hover:bg-brand-600 hover:text-white"
-                          }`}
-                        >
-                          ?
-                        </button>
-                        {activeTooltip === field.key && (
-                          <div role="tooltip" className="absolute right-0 bottom-[calc(100%+8px)] w-[min(220px,70vw)] bg-gray-900 text-white text-xs leading-relaxed rounded-lg p-2.5 z-50">
-                            {field.tooltip}
-                            <div className="absolute -bottom-[5px] right-3 w-2.5 h-2.5 bg-gray-900 rotate-45" />
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    className="h-full transition-all duration-500"
+                    style={{
+                      width: `${(filledRequired / REQUIRED_FIELDS.length) * 100}%`,
+                      background: filledRequired === REQUIRED_FIELDS.length
+                        ? '#8BB992'
+                        : 'linear-gradient(90deg, #36458E, #111852)',
+                    }}
+                  />
+                </div>
+                <span className="label-clinical">
+                  {filledRequired} / {REQUIRED_FIELDS.length}
+                </span>
+              </div>
 
-                    {/* Input */}
-                    <div className="relative">
-                      <input
-                        id={field.key}
-                        type="number"
-                        inputMode="decimal"
-                        step={field.step}
-                        placeholder="—"
-                        value={values[field.key] ?? ""}
-                        onChange={(e) => handleChange(field, e.target.value)}
-                        onBlur={() => handleBlur(field)}
-                        className="fm-input"
-                        style={field.unit ? { paddingRight: 64 } : undefined}
-                        aria-invalid={!!hasError}
-                        aria-describedby={hasError ? `${field.key}-error` : `${field.key}-hint`}
-                      />
-                      {field.unit && (
-                        <span className="absolute right-0 top-1/2 -translate-y-1/2 text-[11px] text-gray-300 pointer-events-none">
-                          {field.unit}
-                        </span>
-                      )}
-                    </div>
+              {/* Fields — tonal gap between items */}
+              <div className="flex flex-col gap-[1px] bg-[#E3E9EA] mb-8 whisper-shadow-sm">
+                {REQUIRED_FIELDS.map((f) => renderField(f))}
+              </div>
 
-                    {/* Hint / Error */}
-                    <p
-                      id={hasError ? `${field.key}-error` : `${field.key}-hint`}
-                      role={hasError ? "alert" : undefined}
-                      className={`text-[11px] mt-1.5 mb-0 ${hasError ? "text-red-500" : "text-gray-300"}`}
-                    >
-                      {hasError ? `⚠ ${errors[field.key]}` : field.hint}
-                    </p>
-                    {field.extraNote && !hasError && (
-                      <p className="text-[11px] text-gray-400 mt-0.5 italic">{field.extraNote}</p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Optional Fields */}
-            <div className="mt-5 border-t border-sand-100 pt-4">
-              <button
-                type="button"
-                onClick={() => setShowOptional((p) => !p)}
-                className="bg-transparent border-none cursor-pointer text-[13px] text-brand-600 font-semibold p-0"
-              >
-                {showOptional ? "▾" : "▸"} Personalise my advice (optional)
-              </button>
-              {showOptional && (
-                <div className="mt-3 grid grid-cols-2 gap-2.5">
+              {/* Context */}
+              <div className="bg-[#EFF5F6] p-5 mb-8">
+                <p className="label-clinical mb-4">Personal Context (optional)</p>
+                <div className="grid grid-cols-2 gap-4">
                   {[
                     { id: "age", label: "Age", unit: "years", value: age, setter: setAge, error: ageError, errSetter: setAgeError },
-                    { id: "monthsTrying", label: "Months trying to conceive", unit: "months", value: monthsTrying, setter: setMonthsTrying, error: monthsError, errSetter: setMonthsError },
+                    { id: "monthsTrying", label: "Months TTC", unit: "months", value: monthsTrying, setter: setMonthsTrying, error: monthsError, errSetter: setMonthsError },
                   ].map((f) => (
-                    <div key={f.id} className="border-[1.5px] border-sand-300 rounded-xl p-2.5">
-                      <label htmlFor={f.id} className="text-[11px] font-semibold text-gray-400 block mb-1.5">
-                        {f.label}
-                      </label>
+                    <div key={f.id}>
+                      <label htmlFor={f.id} className="text-[10px] text-gray-400 uppercase tracking-wide block mb-2">{f.label}</label>
                       <div className="relative">
                         <input
                           id={f.id}
@@ -313,66 +299,49 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
                           style={{ paddingRight: 44 }}
                           aria-invalid={!!f.error}
                         />
-                        <span className="absolute right-0 top-1/2 -translate-y-1/2 text-[11px] text-gray-300">
-                          {f.unit}
-                        </span>
+                        <span className="absolute right-0 top-1/2 -translate-y-1/2 text-[11px] text-gray-400">{f.unit}</span>
                       </div>
-                      {f.error && (
-                        <p role="alert" className="text-[11px] text-red-500 mt-1">{f.error}</p>
-                      )}
+                      <div
+                        className="h-[2px] mt-1"
+                        style={{ background: 'linear-gradient(90deg, rgba(198,197,210,0.25) 0%, rgba(198,197,210,0.08) 100%)' }}
+                      />
+                      {f.error && <p className="text-[11px] text-orange-600 mt-1">{f.error}</p>}
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={!isValid}
-              className="btn-primary w-full mt-6 py-4 text-[15px]"
-            >
-              Analyse My Report &rarr;
-            </button>
-          </form>
-        </div>
-
-        {/* FM Code Lookup */}
-        <div className="text-center mt-6">
-          {!showFMCode ? (
-            <button
-              type="button"
-              onClick={() => setShowFMCode(true)}
-              className="bg-transparent border-none cursor-pointer text-[13px] text-brand-600 underline"
-            >
-              Have an FM Code? Access your previous results &rarr;
-            </button>
-          ) : (
-            <div className="max-w-[360px] mx-auto">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="FM-XXXX-XXXX"
-                  value={fmCode}
-                  onChange={(e) => { setFmCode(e.target.value); setFmCodeError(""); }}
-                  className={`flex-1 border-[1.5px] rounded-lg px-3 py-2.5 text-sm bg-white tracking-wider uppercase focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/10 ${
-                    fmCodeError || lookupError ? "border-red-400" : "border-gray-300"
-                  }`}
-                  aria-label="FM Code"
-                  aria-invalid={!!(fmCodeError || lookupError)}
-                />
-                <button type="button" onClick={handleFMCodeLoad} className="btn-primary px-4 py-2.5">
-                  Load
-                </button>
               </div>
-              {(fmCodeError || lookupError) && (
-                <p role="alert" className="text-xs text-red-500 mt-1.5 text-left">
-                  {fmCodeError || lookupError}
-                </p>
-              )}
+
+              <button type="submit" disabled={!isValid} className="btn-primary w-full py-4">
+                Analyse My Report
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* FM Code — buried under "Transfer data" */}
+        <details className="mt-14 group">
+          <summary className="text-[11px] text-neutral-400 uppercase tracking-wide cursor-pointer hover:text-neutral-600 list-none transition-colors">
+            Transfer results from another device
+          </summary>
+          <div className="mt-4 max-w-[360px] animate-editorial">
+            <p className="text-[12px] text-neutral-500 mb-3">Enter the FM Code from your previous session.</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="FM-XXXX-XXXX"
+                value={fmCode}
+                onChange={(e) => { setFmCode(e.target.value); setFmCodeError(""); }}
+                className="flex-1 bg-[#EFF5F6] px-3 py-2.5 text-sm tracking-wider uppercase focus:outline-none"
+                aria-label="FM Code"
+                style={{ borderBottom: '2px solid rgba(198,197,210,0.2)' }}
+              />
+              <button type="button" onClick={handleFMCodeLoad} className="btn-primary px-4 py-2.5">Load</button>
             </div>
-          )}
-        </div>
+            {(fmCodeError || lookupError) && (
+              <p className="text-[11px] text-orange-600 mt-1.5">{fmCodeError || lookupError}</p>
+            )}
+          </div>
+        </details>
       </div>
     </div>
   );

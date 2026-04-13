@@ -62,66 +62,69 @@ export default function CompareView({ onBack, initialCode }) {
     : 0;
 
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-screen bg-[#F4FAFB]">
       <Nav>
         <button onClick={onBack} className="btn-secondary px-3.5 py-[7px]">&larr; Back to Report</button>
       </Nav>
 
-      <div className="max-w-[600px] mx-auto px-5 pt-9 pb-20">
-        <h1 className="text-2xl font-extrabold text-gray-900 mb-2">Compare Two Reports</h1>
-        <p className="text-sm text-gray-500 mb-7 leading-relaxed">
+      <div className="max-w-[600px] mx-auto px-6 pt-16 pb-24 animate-editorial">
+        <h1 className="font-serif text-[clamp(28px,6vw,40px)] font-bold text-gray-900 mb-3 tracking-tight">Compare Two Reports</h1>
+        <p className="text-[14px] text-gray-500 mb-10 leading-relaxed">
           Enter two FM codes to see how your numbers have changed.
         </p>
 
-        {/* Code Inputs */}
-        <div className="flex flex-col gap-3 mb-5">
+        {/* Code Inputs — editorial underline style */}
+        <div className="flex flex-col gap-5 mb-6">
           {[
             { label: "Older Report", value: codeA, setter: setCodeA },
             { label: "Newer Report", value: codeB, setter: setCodeB },
           ].map((input) => (
             <div key={input.label}>
-              <label className="text-xs font-semibold text-gray-400 block mb-1.5">{input.label}</label>
+              <label className="label-clinical block mb-2">{input.label}</label>
               <input
                 type="text"
                 placeholder="FM-XXXX-XXXX"
                 value={input.value}
                 onChange={(e) => { input.setter(e.target.value); setError(""); }}
-                className="w-full border-[1.5px] border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white tracking-wider uppercase box-border focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/10"
+                className="w-full bg-transparent px-0 py-2.5 text-sm tracking-wider uppercase box-border focus:outline-none"
+                style={{ borderBottom: '2px solid rgba(198,197,210,0.3)' }}
+                onFocus={(e) => e.target.style.borderBottomColor = '#36458E'}
+                onBlur={(e) => e.target.style.borderBottomColor = 'rgba(198,197,210,0.3)'}
                 aria-label={`${input.label} FM Code`}
               />
             </div>
           ))}
         </div>
 
-        {error && <p role="alert" className="text-[13px] text-red-500 mb-4">{error}</p>}
+        {error && <p role="alert" className="text-[13px] text-orange-600 mb-4">{error}</p>}
 
-        <button onClick={handleCompare} className="btn-primary px-7 py-3 text-sm mb-8">
+        <button onClick={handleCompare} className="btn-primary px-7 py-3 mb-12">
           Compare Reports
         </button>
 
         {hasResults && (
           <>
             {/* Summary Badges */}
-            <div className="flex gap-3 flex-wrap mb-5">
+            <div className="flex gap-3 flex-wrap mb-8">
               {improvedCount > 0 && (
-                <div className="bg-green-100 rounded-full px-3.5 py-1.5 text-[13px] font-semibold text-green-700">
+                <div className="bg-wellness-100 px-3.5 py-1.5 text-[13px] font-semibold text-wellness-800">
                   {improvedCount} improved
                 </div>
               )}
               {declinedCount > 0 && (
-                <div className="bg-red-100 rounded-full px-3.5 py-1.5 text-[13px] font-semibold text-red-700">
+                <div className="bg-red-100 px-3.5 py-1.5 text-[13px] font-semibold text-red-700">
                   {declinedCount} declined
                 </div>
               )}
               {improvedCount === 0 && declinedCount === 0 && (
-                <div className="bg-gray-100 rounded-full px-3.5 py-1.5 text-[13px] font-semibold text-gray-500">
+                <div className="bg-[#E3E9EA] px-3.5 py-1.5 text-[13px] font-semibold text-gray-500">
                   No status changes
                 </div>
               )}
             </div>
 
             {/* Parameter Comparison Cards */}
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-[1px] bg-[#E3E9EA]">
               {PARAM_ORDER.map((key) => {
                 const meta = PARAM_META[key];
                 const pA = resultA.parameters[key];
@@ -132,8 +135,8 @@ export default function CompareView({ onBack, initialCode }) {
                 const cfgB = STATUS_CONFIG[pB.status];
 
                 return (
-                  <div key={key} className="card rounded-2xl p-4">
-                    <div className="flex justify-between items-center mb-3">
+                  <div key={key} className="card-tonal p-5">
+                    <div className="flex justify-between items-center mb-4">
                       <div>
                         <div className="text-sm font-bold text-gray-900">{meta.label}</div>
                         {meta.unit && <div className="text-[11px] text-gray-400">{meta.unit}</div>}
@@ -143,22 +146,22 @@ export default function CompareView({ onBack, initialCode }) {
                       )}
                     </div>
 
-                    <div className="flex gap-3">
-                      <div className="flex-1 bg-cream rounded-xl p-2.5 text-center">
-                        <div className="text-[11px] text-gray-400 mb-1">Before</div>
-                        <div className="text-xl font-extrabold text-gray-900">{pA.value}</div>
-                        <div className="mt-1.5">
-                          <span className={`text-[10px] font-semibold ${cfgA.badgeBg} ${cfgA.badgeText} px-2 py-0.5 rounded-full`}>
+                    <div className="flex gap-[1px] bg-[#E3E9EA]">
+                      <div className="flex-1 bg-[#EFF5F6] p-3 text-center">
+                        <div className="text-[10px] text-gray-400 mb-1 uppercase tracking-wide">Before</div>
+                        <div className="font-serif text-xl font-bold text-gray-900">{pA.value}</div>
+                        <div className="mt-2">
+                          <span className={`text-[10px] font-semibold ${cfgA.badgeBg} ${cfgA.badgeText} px-2 py-0.5`}>
                             {STATUS_LABELS[pA.status]}
                           </span>
                         </div>
                       </div>
-                      <div className="flex items-center text-gray-300">&rarr;</div>
-                      <div className="flex-1 bg-cream rounded-xl p-2.5 text-center">
-                        <div className="text-[11px] text-gray-400 mb-1">After</div>
-                        <div className="text-xl font-extrabold text-gray-900">{pB.value}</div>
-                        <div className="mt-1.5">
-                          <span className={`text-[10px] font-semibold ${cfgB.badgeBg} ${cfgB.badgeText} px-2 py-0.5 rounded-full`}>
+                      <div className="flex items-center text-gray-300 px-2">&rarr;</div>
+                      <div className="flex-1 bg-[#EFF5F6] p-3 text-center">
+                        <div className="text-[10px] text-gray-400 mb-1 uppercase tracking-wide">After</div>
+                        <div className="font-serif text-xl font-bold text-gray-900">{pB.value}</div>
+                        <div className="mt-2">
+                          <span className={`text-[10px] font-semibold ${cfgB.badgeBg} ${cfgB.badgeText} px-2 py-0.5`}>
                             {STATUS_LABELS[pB.status]}
                           </span>
                         </div>

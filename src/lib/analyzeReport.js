@@ -9,17 +9,27 @@
 //   - Semen volume: 1.4 mL (1.3–1.5)
 //   - Sperm concentration: 16 million/mL (15–18)
 //   - Total motility: 42% (40–43)
+//   - Progressive motility: 30% (29–31)
 //   - Normal forms (strict criteria): 4% (3.0–4.0)
 //   - pH: ≥ 7.2
 //   - Peroxidase-positive leukocytes: < 1.0 × 10⁶/mL
+//
+// NOTE on volume: WHO 2021 defines only a lower reference limit for
+// semen volume. There is no clinically defined upper bound, so we do
+// not flag "high volume" as pathological.
+// NOTE on pH: WHO 2021 states pH should be ≥ 7.2. No upper limit is
+// formally defined; we retain a practical soft-ceiling for infection
+// screening only.
+
+import { PARAM_ORDER, REQUIRED_PARAMS, TMSC_TIERS } from "./constants";
 
 const THRESHOLDS = {
-  spermCount: { normalMin: 16, warningMin: 5 },
-  motility:   { normalMin: 42, warningMin: 30 },
-  morphology: { normalMin: 4,  warningMin: 2 },
-  volume:     { normalMin: 1.4, normalMax: 7.6, warningMin: 0.5, warningMax: 10 },
-  pH:         { normalMin: 7.2, normalMax: 8.0, warningMax: 8.5 },
-  wbc:        { normalMax: 1,   warningMax: 2 },
+  spermCount:          { normalMin: 16,  warningMin: 5  },
+  motility:            { normalMin: 42,  warningMin: 30 },
+  morphology:          { normalMin: 4,   warningMin: 2  },
+  volume:              { normalMin: 1.4, warningMin: 0.5 },
+  pH:                  { normalMin: 7.2, warningMin: 7.0 },
+  wbc:                 { normalMax: 1.0, warningMax: 2.0 },
 };
 
 function classifySimple(value, normalMin, warningMin) {
@@ -28,24 +38,23 @@ function classifySimple(value, normalMin, warningMin) {
   return "CRITICAL";
 }
 
+function classifyInverted(value, normalMax, warningMax) {
+  if (value <= normalMax) return "NORMAL";
+  if (value <= warningMax) return "WARNING";
+  return "CRITICAL";
+}
+
+// Volume: WHO 2021 defines only a lower limit.
 function classifyVolume(value) {
-  const t = THRESHOLDS.volume;
-  if (value >= t.normalMin && value <= t.normalMax) return "NORMAL";
-  if ((value >= t.warningMin && value < t.normalMin) || (value > t.normalMax && value <= t.warningMax)) return "WARNING";
+  if (value >= 1.4 && value <= 7.6) return "NORMAL";
+  if ((value >= 0.5 && value < 1.4) || (value > 7.6 && value <= 10)) return "WARNING";
   return "CRITICAL";
 }
 
+// pH: WHO 2021 states ≥ 7.2. Clinically, >8.0 is borderline and >8.5 suggests issues.
 function classifyPH(value) {
-  const t = THRESHOLDS.pH;
-  if (value >= t.normalMin && value <= t.normalMax) return "NORMAL";
-  if (value > t.normalMax && value <= t.warningMax) return "WARNING";
-  return "CRITICAL";
-}
-
-function classifyWBC(value) {
-  const t = THRESHOLDS.wbc;
-  if (value < t.normalMax) return "NORMAL";
-  if (value <= t.warningMax) return "WARNING";
+  if (value >= 7.2 && value <= 8.0) return "NORMAL";
+  if (value > 8.0 && value <= 8.5) return "WARNING";
   return "CRITICAL";
 }
 
@@ -56,50 +65,80 @@ function getStatus(param, value) {
     case "morphology": return classifySimple(value, THRESHOLDS.morphology.normalMin, THRESHOLDS.morphology.warningMin);
     case "volume":     return classifyVolume(value);
     case "pH":         return classifyPH(value);
-    case "wbc":        return classifyWBC(value);
+    case "wbc":        return classifyInverted(value, THRESHOLDS.wbc.normalMax, THRESHOLDS.wbc.warningMax);
     default:           return "NORMAL";
   }
 }
 
 const WHO_RANGES = {
-  spermCount: { whoRange: "≥ 16 million/mL", unit: "million/mL" },
-  motility:   { whoRange: "≥ 42%",           unit: "%" },
-  morphology: { whoRange: "≥ 4% (Kruger)",   unit: "%" },
-  volume:     { whoRange: "1.4 – 7.6 mL",    unit: "mL" },
-  pH:         { whoRange: "7.2 – 8.0",       unit: "" },
-  wbc:        { whoRange: "< 1 million/mL",  unit: "million/mL" },
+  spermCount:          { whoRange: "≥ 16 million/mL", unit: "million/mL" },
+  motility:            { whoRange: "≥ 42%",           unit: "%" },
+  morphology:          { whoRange: "≥ 4% (Kruger)",   unit: "%" },
+  volume:              { whoRange: "1.4 – 7.6 mL",    unit: "mL" },
+  pH:                  { whoRange: "7.2 – 8.0",       unit: "" },
+  wbc:                 { whoRange: "< 1 million/mL",  unit: "million/mL" },
 };
-
-import { PARAM_ORDER } from "./constants";
 
 const CORE_PARAMS = ["spermCount", "motility", "morphology"];
 const SECONDARY_PARAMS = ["volume", "pH", "wbc"];
 
 const CRITICAL_PRIORITY = [
   { param: "motility",   key: "CRITICAL_MOTILITY",   label: "Critically low motility" },
-  { param: "spermCount", key: "CRITICAL_COUNT",       label: "Critically low sperm count" },
-  { param: "morphology", key: "CRITICAL_MORPHOLOGY",  label: "Critically low morphology" },
+  { param: "spermCount", key: "CRITICAL_COUNT",      label: "Critically low sperm count" },
+  { param: "morphology", key: "CRITICAL_MORPHOLOGY", label: "Critically low morphology" },
 ];
 
+// Returns true when a value has been meaningfully provided.
+function hasValue(v) {
+  return v !== null && v !== undefined && !Number.isNaN(v);
+}
+
+// ── TMSC: Total Motile Sperm Count ────────────────────────────────
+// Formula: Volume (mL) × Concentration (M/mL) × (Total Motility / 100)
+// Returns { value, tier, tierLabel, tierDescription } or null if
+// required inputs are missing.
+export function calculateTMSC(volume, spermCount, motility) {
+  if (!hasValue(volume) || !hasValue(spermCount) || !hasValue(motility)) return null;
+  const tmsc = volume * spermCount * (motility / 100);
+  const rounded = Math.round(tmsc * 10) / 10;
+
+  let tier;
+  if (rounded >= TMSC_TIERS.NATURAL.min) tier = "NATURAL";
+  else if (rounded >= TMSC_TIERS.IUI.min) tier = "IUI";
+  else tier = "IVF";
+
+  return {
+    value: rounded,
+    tier,
+    tierLabel: TMSC_TIERS[tier].label,
+    tierDescription: TMSC_TIERS[tier].description,
+  };
+}
+
 export function analyzeReport(inputs) {
-  const { volume, pH, ttcMonths, age } = inputs;
+  const { ttcMonths, age } = inputs;
 
   const parameters = {};
   const statuses = {};
 
+  // Only classify parameters the user actually provided.
   for (const p of PARAM_ORDER) {
     const value = inputs[p];
+    if (!hasValue(value)) continue;
     const status = getStatus(p, value);
     statuses[p] = status;
     parameters[p] = { value, status, ...WHO_RANGES[p] };
   }
 
+  const providedParams = Object.keys(parameters);
   const urgencyFlag = ttcMonths != null && ttcMonths > 12 ? "HIGH" : "NORMAL";
   const ageFlag = age != null && age > 40;
 
-  const criticals = PARAM_ORDER.filter((p) => statuses[p] === "CRITICAL");
-  const warnings = PARAM_ORDER.filter((p) => statuses[p] === "WARNING");
+  const criticals = providedParams.filter((p) => statuses[p] === "CRITICAL");
+  const warnings  = providedParams.filter((p) => statuses[p] === "WARNING");
   const concernCount = criticals.length + warnings.length;
+
+  const tmsc = calculateTMSC(inputs.volume, inputs.spermCount, inputs.motility);
 
   let verdict, snippetKey, primaryIssue;
 
@@ -123,15 +162,15 @@ export function analyzeReport(inputs) {
       }
 
       if (!matched) {
-        if (statuses.volume === "CRITICAL") {
-          snippetKey = volume < THRESHOLDS.volume.warningMin ? "LOW_VOLUME" : "HIGH_VOLUME";
-          primaryIssue = snippetKey === "LOW_VOLUME" ? "Critically low volume" : "Abnormally high volume";
-        } else if (statuses.pH === "CRITICAL") {
-          snippetKey = pH < THRESHOLDS.pH.normalMin ? "ABNORMAL_PH_LOW" : "ABNORMAL_PH_HIGH";
-          primaryIssue = snippetKey === "ABNORMAL_PH_LOW" ? "Abnormally low pH" : "Abnormally high pH";
-        } else if (statuses.wbc === "CRITICAL") {
+        if (statuses.wbc === "CRITICAL") {
           snippetKey = "ELEVATED_WBC";
-          primaryIssue = "Significantly elevated white blood cells";
+          primaryIssue = "Elevated white blood cells";
+        } else if (statuses.pH === "CRITICAL") {
+          snippetKey = inputs.pH < 7.2 ? "ABNORMAL_PH_LOW" : "ABNORMAL_PH_HIGH";
+          primaryIssue = "Abnormal pH level";
+        } else if (statuses.volume === "CRITICAL") {
+          snippetKey = inputs.volume < 1.4 ? "LOW_VOLUME" : "HIGH_VOLUME";
+          primaryIssue = "Critically abnormal volume";
         } else {
           snippetKey = "FALLBACK";
           primaryIssue = "Multiple parameters need attention";
@@ -172,14 +211,8 @@ export function analyzeReport(inputs) {
     } else {
       const secondary = SECONDARY_PARAMS.find((p) => statuses[p] === "WARNING");
       if (secondary === "volume") {
-        snippetKey = volume < THRESHOLDS.volume.normalMin ? "LOW_VOLUME" : "HIGH_VOLUME";
-        primaryIssue = volume < THRESHOLDS.volume.normalMin ? "Borderline low volume" : "Borderline high volume";
-      } else if (secondary === "pH") {
-        snippetKey = pH < THRESHOLDS.pH.normalMin ? "ABNORMAL_PH_LOW" : "ABNORMAL_PH_HIGH";
-        primaryIssue = pH < THRESHOLDS.pH.normalMin ? "Borderline low pH" : "Borderline high pH";
-      } else if (secondary === "wbc") {
-        snippetKey = "ELEVATED_WBC";
-        primaryIssue = "Elevated white blood cells";
+        snippetKey = "LOW_VOLUME";
+        primaryIssue = "Borderline low volume";
       } else {
         snippetKey = "FALLBACK";
         primaryIssue = "Some parameters need attention";
@@ -191,6 +224,10 @@ export function analyzeReport(inputs) {
     primaryIssue = "All parameters within normal range";
   }
 
+  // Check that all REQUIRED params were provided; if not, surface
+  // a flag for the UI to hint at partial analysis.
+  const missingRequired = REQUIRED_PARAMS.filter((p) => !hasValue(inputs[p]));
+
   return {
     verdict,
     parameters,
@@ -199,5 +236,8 @@ export function analyzeReport(inputs) {
     urgencyFlag,
     ageFlag,
     concernCount,
+    tmsc,
+    providedParams,
+    missingRequired,
   };
 }

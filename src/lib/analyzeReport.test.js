@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { analyzeReport } from "./ruleEngine";
+import { analyzeReport } from "./analyzeReport";
 
 const HEALTHY = {
   spermCount: 50,

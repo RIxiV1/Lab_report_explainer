@@ -1,120 +1,94 @@
 import { useState, useEffect } from "react";
 import ParameterCard from "./ParameterCard";
 import Nav from "./Nav";
-import {
-  PARAM_ORDER, PARAM_META, VERDICT_CONFIG,
-  TIMELINE_ORDER, FERTIQ_URL,
-} from "../lib/constants";
+import { PARAM_ORDER, PARAM_META, VERDICT_CONFIG, TIMELINE_ORDER, FERTIQ_URL } from "../lib/constants";
 
 const CTX_LINES = {
-  spermCount: {
-    NORMAL: "Your concentration is within the healthy range.",
-    WARNING: "Slightly below WHO guidelines — often improvable with lifestyle changes.",
-    CRITICAL: "Below the threshold where natural conception becomes harder, but treatment options exist.",
-  },
-  motility: {
-    NORMAL: "Enough of your sperm are moving well.",
-    WARNING: "Movement is slightly reduced — this responds well to targeted nutrition.",
-    CRITICAL: "Significantly reduced movement — this is the most important parameter to address.",
-  },
-  morphology: {
-    NORMAL: "Shape is within WHO guidelines.",
-    WARNING: "Slightly below 4% — the most commonly misread value. Context matters more than the number.",
-    CRITICAL: "Below standard, but morphology alone rarely determines fertility outcomes.",
-  },
-  volume: {
-    NORMAL: "Semen volume is healthy.",
-    WARNING: "Volume is outside the typical range — worth discussing with a doctor.",
-    CRITICAL: "Volume significantly outside range — may affect sperm delivery.",
-  },
-  pH: {
-    NORMAL: "Acidity is balanced.",
-    WARNING: "Slightly outside normal range — a minor issue worth checking.",
-    CRITICAL: "pH outside safe range — can indicate infection or blockage.",
-  },
-  wbc: {
-    NORMAL: "No signs of infection in your sample.",
-    WARNING: "Mildly elevated white blood cells — may indicate mild inflammation.",
-    CRITICAL: "Elevated pus cells — a sign of possible infection requiring medical attention.",
-  },
+  spermCount: { NORMAL: "Within healthy range.", WARNING: "Slightly below WHO — commonly improvable.", CRITICAL: "Treatment options are well-established." },
+  motility:   { NORMAL: "Moving well.", WARNING: "Slightly reduced — responds to nutrition.", CRITICAL: "Most responsive parameter to treatment." },
+  morphology: { NORMAL: "Shape within guidelines.", WARNING: "Most misread value — context matters more.", CRITICAL: "Rarely determines outcomes alone." },
+  volume:     { NORMAL: "Volume is healthy.", WARNING: "Check collection technique and hydration.", CRITICAL: "Usually resolves with proper collection." },
+  pH:         { NORMAL: "Balanced.", WARNING: "Minor finding.", CRITICAL: "Worth a follow-up." },
+  wbc:        { NORMAL: "No infection signs.", WARNING: "Mild — usually manageable.", CRITICAL: "Treatable — talk to your doctor." },
 };
-
-const SECTIONS = [
-  { id: "section-results",    label: "Results" },
-  { id: "section-meaning",    label: "What It Means" },
-  { id: "section-next-steps", label: "Next Steps" },
-  { id: "section-fm-code",    label: "Your Code" },
-  { id: "andrologist-section", label: "Improve" },
-];
-
-function groupByTimeline(actions) {
-  const groups = {};
-  TIMELINE_ORDER.forEach((t) => (groups[t] = []));
-  (actions || []).forEach((a) => {
-    const key = a.timeline || "Immediate";
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(a);
-  });
-  return groups;
-}
 
 function buildWhatsAppText(result, fmCode, verdictLabel) {
   const params = PARAM_ORDER.map((key) => {
     const p = result.parameters[key];
     if (!p) return null;
     const meta = PARAM_META[key];
-    const emoji = p.status === "NORMAL" ? "✅" : p.status === "WARNING" ? "⚠️" : "🔴";
-    return `${emoji} ${meta.label}: ${p.value}${meta.unit ? " " + meta.unit : ""}`;
+    return `${meta.label}: ${p.value}${meta.unit ? " " + meta.unit : ""}`;
   }).filter(Boolean).join("\n");
+  const tmscLine = result.tmsc ? `\nTMSC: ${result.tmsc.value}M — ${result.tmsc.tierLabel}` : "";
+  return encodeURIComponent(`My Semen Analysis — ${verdictLabel}${tmscLine}\n\n${params}\n\nFM Code: ${fmCode}\nhttps://formen.health/pages/lab-report-explainer`);
+}
 
-  return encodeURIComponent(
-    `My Semen Analysis Results — ${verdictLabel}\n\n${params}\n\nFM Code: ${fmCode}\nAnalysed with ForMen Health Lab Report Explainer\nhttps://formen.health/pages/lab-report-explainer`
+const DOCTOR_URL = "https://www.formen.health/pages/book-doctor-appointment";
+
+const FOOD_TIPS = [
+  { item: "Walnuts, almonds, pumpkin seeds", why: "Zinc + selenium" },
+  { item: "Salmon, sardines", why: "Omega-3" },
+  { item: "Berries, tomatoes, greens", why: "Antioxidants" },
+  { item: "Eggs, lean beef, lentils", why: "B12 + protein" },
+];
+
+const LIFESTYLE_TIPS = [
+  "Avoid laptops on lap and hot baths",
+  "Sleep 7–9 hrs, exercise 150 min/week",
+  "Cut alcohol to ≤ 4/week; stop smoking",
+];
+
+function TMSCGauge({ value }) {
+  const pct = Math.max(2, Math.min(98, (Math.min(value, 50) / 50) * 100));
+  return (
+    <div className="mt-8" aria-hidden="true">
+      {/* Zone labels above */}
+      <div className="flex mb-2">
+        <div className="text-[10px] text-white/30 uppercase tracking-wide" style={{ width: "10%" }}>IVF</div>
+        <div className="text-[10px] text-white/30 uppercase tracking-wide text-center" style={{ width: "30%" }}>IUI</div>
+        <div className="text-[10px] text-white/30 uppercase tracking-wide text-right" style={{ width: "60%" }}>Natural</div>
+      </div>
+      {/* Bar */}
+      <div className="relative">
+        <div className="flex h-[10px] overflow-hidden" style={{ gap: "2px" }}>
+          <div style={{ width: "10%", background: "rgba(249,115,22,0.6)" }} />
+          <div style={{ width: "30%", background: "rgba(255,184,0,0.5)" }} />
+          <div style={{ width: "60%", background: "rgba(139,185,146,0.45)" }} />
+        </div>
+        <div className="absolute top-1/2" style={{ left: `${pct}%`, transform: "translate(-50%, -50%)" }}>
+          <div className="w-5 h-5 rounded-full" style={{ background: "#fff", boxShadow: "0 0 0 3px #111852, 0 0 12px rgba(255,255,255,0.3)" }} />
+        </div>
+      </div>
+      {/* Threshold marks */}
+      <div className="relative mt-1 h-4">
+        <span className="absolute text-[10px] text-white/40 font-mono" style={{ left: "10%", transform: "translateX(-50%)" }}>5M</span>
+        <span className="absolute text-[10px] text-white/40 font-mono" style={{ left: "40%", transform: "translateX(-50%)" }}>20M</span>
+      </div>
+    </div>
   );
 }
 
-function useScrollSpy(ids) {
-  const [activeId, setActiveId] = useState(ids[0]);
-
-  useEffect(() => {
-    const elements = ids.map((id) => document.getElementById(id)).filter(Boolean);
-    if (elements.length === 0) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setActiveId(entry.target.id);
-          }
-        }
-      },
-      { rootMargin: "-20% 0px -60% 0px" }
-    );
-
-    elements.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, [ids]);
-
-  return activeId;
-}
-
-function scrollToSection(id) {
-  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+// Round display values to avoid OCR artifacts like "7.707"
+function displayValue(value) {
+  if (Number.isInteger(value)) return value;
+  const str = String(value);
+  const decimals = str.includes(".") ? str.split(".")[1].length : 0;
+  if (decimals > 1) return Math.round(value * 10) / 10;
+  return value;
 }
 
 export default function ResultsDashboard({ result, snippet, fmCode, onReset, onBackToInput, onCompare }) {
   const [copied, setCopied] = useState(false);
   const [checkedActions, setCheckedActions] = useState({});
   const verdictCfg = VERDICT_CONFIG[result.verdict] || VERDICT_CONFIG.ATTENTION;
-  const actionGroups = groupByTimeline(snippet?.actions);
-  const sectionIds = SECTIONS.map((s) => s.id);
-  const activeSection = useScrollSpy(sectionIds);
+  const tmsc = result.tmsc;
+  const providedKeys = PARAM_ORDER.filter((k) => result.parameters[k] !== undefined);
+  const normalCount = providedKeys.filter((k) => result.parameters[k].status === "NORMAL").length;
+  const flaggedCount = providedKeys.length - normalCount;
 
   useEffect(() => {
     if (!fmCode) return;
-    try {
-      const saved = JSON.parse(localStorage.getItem(`fm_actions_${fmCode}`) || "{}");
-      setCheckedActions(saved);
-    } catch {}
+    try { setCheckedActions(JSON.parse(localStorage.getItem(`fm_actions_${fmCode}`) || "{}")); } catch {}
   }, [fmCode]);
 
   function toggleAction(timeline, index) {
@@ -127,214 +101,217 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
   }
 
   function handleCopy() {
-    navigator.clipboard.writeText(fmCode).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }).catch(() => {});
-  }
-
-  function handleDownload() {
-    const date = new Date().toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" });
-    const blob = new Blob([
-      `Your FM Lab Report Code: ${fmCode}\nGenerated: ${date}\n\nTo access your results:\nVisit formen.health/pages/lab-report-explainer and enter this code.\n\nNote: Results are stored only on the device where you first generated them.\n\nForMen Health — formen.health`
-    ], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${fmCode}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    navigator.clipboard.writeText(fmCode).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }).catch(() => {});
   }
 
   function handleWhatsApp() {
-    const text = buildWhatsAppText(result, fmCode, verdictCfg.label);
-    window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
+    window.open(`https://wa.me/?text=${buildWhatsAppText(result, fmCode, verdictCfg.label)}`, "_blank", "noopener,noreferrer");
   }
 
-  const paramStatuses = PARAM_ORDER.map((k) => result.parameters[k]?.status || "NORMAL");
-  const normalCount = paramStatuses.filter((s) => s === "NORMAL").length;
-  const warningCount = paramStatuses.filter((s) => s === "WARNING").length;
-  const criticalCount = paramStatuses.filter((s) => s === "CRITICAL").length;
+  const actionGroups = {};
+  TIMELINE_ORDER.forEach((t) => (actionGroups[t] = []));
+  (snippet?.actions || []).forEach((a) => {
+    const key = a.timeline || "Immediate";
+    if (!actionGroups[key]) actionGroups[key] = [];
+    actionGroups[key].push(a);
+  });
+
+  // Trim narrative to first 2 sentences for the hero
+  const narrativeShort = snippet?.narrative
+    ? snippet.narrative.split(/(?<=[.!?])\s+/).slice(0, 2).join(" ")
+    : null;
 
   return (
-    <div className="bg-cream min-h-screen">
-      {/* Nav */}
-      <Nav sticky className="no-print">
-        <button onClick={onBackToInput} className="btn-secondary px-3.5 py-[7px]">&larr; Edit Details</button>
-        <button onClick={onReset} className="btn-secondary px-3.5 py-[7px]">Start Fresh</button>
-      </Nav>
+    <div className="min-h-screen bg-[#F4FAFB]">
+      <Nav sticky className="no-print" onLogoClick={onReset} />
 
-      {/* Disclaimer */}
-      <div className="bg-amber-50 border-b border-amber-200 py-2.5 px-5 text-center text-xs text-amber-800" role="alert">
-        <strong>This is an explanation, not a diagnosis.</strong> Always consult a qualified andrologist before making medical decisions.
-      </div>
+      {/* ══════ HERO ══════ */}
+      <section className="bg-[#111852] text-white relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none" style={{
+          backgroundImage: 'radial-gradient(ellipse at 85% 15%, rgba(54,69,142,0.5) 0%, transparent 50%), radial-gradient(ellipse at 15% 85%, rgba(54,69,142,0.25) 0%, transparent 50%)',
+        }} />
+        <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{
+          backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")',
+        }} />
 
-      {/* Section Nav */}
-      <div className="no-print sticky top-[53px] z-40 bg-cream/95 backdrop-blur-sm border-b border-sand-200">
-        <nav className="max-w-[820px] mx-auto px-5 flex gap-1 overflow-x-auto py-2" aria-label="Page sections">
-          {SECTIONS.map((section) => (
-            <button
-              key={section.id}
-              onClick={() => scrollToSection(section.id)}
-              className={`whitespace-nowrap px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-colors cursor-pointer border-none ${
-                activeSection === section.id
-                  ? "bg-brand-600 text-white"
-                  : "bg-transparent text-gray-400 hover:text-gray-600 hover:bg-sand-200"
-              }`}
-            >
-              {section.label}
-            </button>
-          ))}
-        </nav>
-      </div>
+        <div className="max-w-[800px] mx-auto px-6 pt-16 pb-16 relative z-10">
+          {/* Row 1: Verdict + counts */}
+          <div className="flex items-center gap-4 flex-wrap mb-6">
+            <h1 className="font-serif text-[clamp(36px,8vw,52px)] leading-none font-bold tracking-tight">
+              {verdictCfg.label}
+            </h1>
+            <div className="flex gap-2">
+              {normalCount > 0 && (
+                <span className="text-[11px] font-semibold px-2.5 py-1" style={{ background: "rgba(139,185,146,0.15)", color: "#8BB992" }}>
+                  {normalCount} Normal
+                </span>
+              )}
+              {flaggedCount > 0 && (
+                <span className="text-[11px] font-semibold px-2.5 py-1" style={{ background: "rgba(255,184,0,0.15)", color: "#FFB800" }}>
+                  {flaggedCount} Flagged
+                </span>
+              )}
+            </div>
+          </div>
 
-      <div className="max-w-[820px] mx-auto px-5 pt-7 pb-20">
-        {/* Verdict — always visible, not in section nav */}
-        <div className={`${verdictCfg.bg} border-[1.5px] ${verdictCfg.border} rounded-2xl p-7 mb-7`}>
-          <h2 className={`text-[22px] font-extrabold ${verdictCfg.text} mb-2.5`}>{verdictCfg.label}</h2>
-          {snippet?.verdictCard && (
-            <p className="text-[15px] leading-[1.7] text-gray-800 mb-4">{snippet.verdictCard}</p>
+          {/* Row 2: Short narrative (2 sentences only) */}
+          {narrativeShort && (
+            <p className="text-[15px] leading-[1.8] text-white/60 max-w-[600px] mb-10">
+              {narrativeShort}
+            </p>
           )}
-          <div className="flex gap-2.5 flex-wrap" aria-label="Parameter summary">
-            {[
-              { count: normalCount, label: "Normal", cls: "bg-green-100 text-green-700" },
-              { count: warningCount, label: "Borderline", cls: "bg-amber-100 text-amber-700" },
-              { count: criticalCount, label: "Act Now", cls: "bg-red-100 text-red-700" },
-            ].filter((s) => s.count > 0).map((s) => (
-              <div key={s.label} className={`${s.cls} rounded-full px-3.5 py-1 flex items-center gap-1.5`}>
-                <span className="text-base font-extrabold">{s.count}</span>
-                <span className="text-xs font-medium">{s.label}</span>
+
+          {/* Row 3: TMSC — the visual centerpiece */}
+          {tmsc && (
+            <div className="mb-10 max-w-[500px]">
+              <p className="text-[10px] text-white/30 uppercase tracking-wider mb-2">Total Motile Sperm Count</p>
+              <div className="flex items-baseline gap-2">
+                <span className="font-serif text-[clamp(56px,12vw,80px)] font-bold text-white leading-none tabular-nums tracking-tight">
+                  {displayValue(tmsc.value)}
+                </span>
+                <span className="text-[13px] text-white/35 font-medium">million</span>
               </div>
-            ))}
+              <TMSCGauge value={tmsc.value} />
+              <span className="inline-block mt-4 px-3 py-1 text-[11px] font-bold uppercase tracking-wide" style={{
+                background: tmsc.tier === "NATURAL" ? "rgba(139,185,146,0.2)" : tmsc.tier === "IUI" ? "rgba(255,184,0,0.2)" : "rgba(249,115,22,0.2)",
+                color: tmsc.tier === "NATURAL" ? "#a8d5b0" : tmsc.tier === "IUI" ? "#FFD54F" : "#fb923c",
+              }}>
+                {tmsc.tierLabel}
+              </span>
+            </div>
+          )}
+
+          {/* Buttons */}
+          <div className="no-print flex gap-2 flex-wrap">
+            <button onClick={() => window.print()} className="bg-white text-[#111852] font-semibold px-5 py-2.5 text-[11px] uppercase tracking-wide cursor-pointer hover:bg-gray-100 transition-colors" style={{ boxShadow: '0 4px 16px rgba(17,24,82,0.2)' }}>
+              Download PDF
+            </button>
+            <button onClick={handleWhatsApp} className="bg-[#36458E] text-white font-semibold px-5 py-2.5 text-[11px] uppercase tracking-wide cursor-pointer hover:bg-[#283573] transition-colors">
+              Share
+            </button>
+            <button onClick={onBackToInput} className="text-white/40 hover:text-white/80 font-semibold px-5 py-2.5 text-[11px] uppercase tracking-wide cursor-pointer bg-transparent transition-colors" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+              Edit Details
+            </button>
           </div>
         </div>
+      </section>
 
-        {/* Action Bar */}
-        <div className="no-print flex gap-2 flex-wrap mb-7">
-          <button onClick={() => window.print()} className="btn-secondary flex items-center gap-1.5 px-4 py-2.5">
-            Download PDF
-          </button>
-          <button
-            onClick={handleWhatsApp}
-            className="bg-[#25D366] text-white border-none rounded-xl px-4 py-2.5 text-[13px] font-semibold cursor-pointer flex items-center gap-1.5"
-          >
-            Share on WhatsApp
-          </button>
-          <button onClick={onCompare} className="btn-secondary flex items-center gap-1.5 px-4 py-2.5">
-            Compare with Previous
-          </button>
-        </div>
+      {/* ══════ CONTENT ══════ */}
+      <div className="max-w-[800px] mx-auto px-6 py-14">
 
-        {/* Section: Results */}
-        <section id="section-results" className="mb-9 scroll-mt-28" aria-label="Your results explained">
-          <h3 className="text-lg font-extrabold text-gray-900 mb-4">Your Results, Explained</h3>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-3.5">
-            {PARAM_ORDER.map((key) => {
+        {/* ── Parameter Cards ── */}
+        <section className="mb-14">
+          <div className="flex items-baseline justify-between mb-6">
+            <h3 className="font-serif text-[24px] font-bold text-gray-900 tracking-tight">Your Results</h3>
+            <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">WHO 2021</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {providedKeys.map((key) => {
               const p = result.parameters[key];
-              if (!p) return null;
               const meta = PARAM_META[key];
               return (
                 <ParameterCard
-                  key={key}
-                  paramName={meta.label}
-                  value={p.value}
-                  unit={meta.unit}
-                  whoRange={meta.whoRange}
-                  status={p.status}
-                  contextualizingLine={CTX_LINES[key]?.[p.status] || ""}
+                  key={key} paramKey={key} paramName={meta.label}
+                  value={displayValue(p.value)} unit={meta.unit} whoRange={meta.whoRange}
+                  status={p.status} contextualizingLine={CTX_LINES[key]?.[p.status] || ""}
                 />
               );
             })}
           </div>
         </section>
 
-        {/* Section: What It Means */}
-        <section id="section-meaning" className="mb-9 scroll-mt-28" aria-label="What this means for you">
-          <h3 className="text-lg font-extrabold text-gray-900 mb-4">What This Means For You</h3>
-
-          {snippet?.morphologyNote && result.parameters.morphology?.status !== "NORMAL" && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 text-sm text-blue-800 leading-relaxed">
-              <strong>About your morphology result:</strong> {snippet.morphologyNote}
+        {/* ── Doctor CTA ── */}
+        <section className="mb-14">
+          <div className="p-7 flex flex-col md:flex-row items-start md:items-center justify-between gap-5" style={{ background: "linear-gradient(135deg, #F2F3F9, #EAECFA)", border: '1px solid rgba(218,225,249,0.4)' }}>
+            <div>
+              <p className="font-serif text-[20px] font-bold text-gray-900 mb-1">Speak to a Specialist</p>
+              <p className="text-[13px] text-gray-500 max-w-[380px]">15 minutes to walk through your exact results with a fertility doctor.</p>
             </div>
-          )}
-
-          {snippet?.narrative && (
-            <div className="card p-6">
-              <p className="text-[17px] leading-[1.8] text-gray-800">{snippet.narrative}</p>
-            </div>
-          )}
-        </section>
-
-        {/* Section: Next Steps */}
-        <section id="section-next-steps" className="mb-10 scroll-mt-28" aria-label="Your next steps">
-          <h3 className="text-lg font-extrabold text-gray-900 mb-5">Your Next Steps</h3>
-
-          {TIMELINE_ORDER.map((timeline) => {
-            const items = actionGroups[timeline];
-            if (!items || items.length === 0) return null;
-            return (
-              <div key={timeline} className="mb-6">
-                <div className="text-[13px] font-bold uppercase tracking-wider text-brand-600 mb-3">{timeline}</div>
-                <div className="flex flex-col gap-2.5">
-                  {items.map((action, i) => {
-                    const key = `${timeline}-${i}`;
-                    const checked = !!checkedActions[key];
-                    return (
-                      <div
-                        key={i}
-                        className={`card rounded-xl p-4 flex gap-3 items-start transition-opacity ${checked ? "opacity-60" : ""}`}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => toggleAction(timeline, i)}
-                          aria-label={checked ? "Uncheck this step" : "Mark this step as done"}
-                          className={`no-print w-[22px] h-[22px] rounded-md flex-shrink-0 mt-0.5 cursor-pointer flex items-center justify-center transition-colors ${
-                            checked ? "bg-brand-600 border-none" : "bg-white"
-                          }`}
-                          style={!checked ? { border: "1.5px solid #ccc" } : undefined}
-                        >
-                          {checked && <span className="text-white text-xs leading-none">&#10003;</span>}
-                        </button>
-                        <div className="flex-1">
-                          <p className={`text-sm leading-snug text-gray-800 ${checked ? "line-through" : ""}`}>
-                            {action.action}
-                          </p>
-                          {action.fertiQ && (
-                            <a
-                              href={FERTIQ_URL}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="no-print inline-flex items-center gap-1 mt-2 text-xs text-brand-600 bg-brand-50 rounded-full px-2.5 py-1 font-semibold no-underline hover:bg-brand-600/10"
-                            >
-                              FertiQ by ForMen — View supplement &rarr;
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </section>
-
-        {/* Section: FM Code */}
-        <div id="section-fm-code" className="scroll-mt-28 bg-white border-[1.5px] border-green-300 rounded-2xl p-5 mb-8 flex items-center gap-4 flex-wrap">
-          <div className="flex-1 min-w-[200px]">
-            <div className="text-xs text-green-600 font-semibold uppercase tracking-wider mb-1">Save Your FM Code</div>
-            <div className="text-[22px] font-extrabold text-brand-600 tracking-widest font-mono">{fmCode}</div>
-            <div className="text-xs text-gray-400 mt-1">Your only key to these results. We don't store your name, email, or phone.</div>
+            <a href={DOCTOR_URL} target="_blank" rel="noopener noreferrer" className="btn-primary shrink-0">
+              Book Free Consultation
+            </a>
           </div>
-          <div className="no-print flex gap-2">
-            <button onClick={handleCopy} className="btn-primary px-4 py-2.5">
-              {copied ? "✓ Copied!" : "Copy Code"}
-            </button>
-            <button onClick={handleDownload} className="btn-secondary px-4 py-2.5 !text-brand-600 !border-brand-600">
-              Download
-            </button>
+        </section>
+
+        {/* ── Next Steps ── */}
+        {snippet?.actions && snippet.actions.length > 0 && (
+          <section className="mb-14">
+            <h3 className="font-serif text-[24px] font-bold text-gray-900 tracking-tight mb-5">Next Steps</h3>
+            <div className="card-tonal overflow-hidden">
+              {TIMELINE_ORDER.map((timeline, index) => {
+                const items = actionGroups[timeline];
+                if (!items || items.length === 0) return null;
+                return (
+                  <div key={timeline} style={index > 0 ? { borderTop: '1px solid rgba(198,197,210,0.12)' } : undefined}>
+                    <div className="bg-[#EFF5F6] px-5 py-2" style={{ borderBottom: '1px solid rgba(198,197,210,0.08)' }}>
+                      <p className="text-[11px] uppercase tracking-wider font-bold text-gray-500">{timeline}</p>
+                    </div>
+                    <div className="p-5 space-y-3">
+                      {items.map((action, i) => {
+                        const key = `${timeline}-${i}`;
+                        const checked = !!checkedActions[key];
+                        return (
+                          <div key={i} className={`flex gap-3 items-start ${checked ? "opacity-30" : ""}`} style={{ transition: 'opacity 0.3s' }}>
+                            <button
+                              type="button" onClick={() => toggleAction(timeline, i)}
+                              className={`no-print w-[18px] h-[18px] shrink-0 mt-0.5 flex items-center justify-center cursor-pointer ${checked ? "bg-brand-500" : "bg-white"}`}
+                              style={{ border: checked ? '1.5px solid #36458E' : '1.5px solid rgba(198,197,210,0.4)' }}
+                            >
+                              {checked && <span className="text-white text-[10px] leading-none">✓</span>}
+                            </button>
+                            <div className="flex-1">
+                              <p className={`text-[13px] leading-relaxed text-gray-800 ${checked ? "line-through" : ""}`}>{action.action}</p>
+                              {action.fertiQ && (
+                                <a href={FERTIQ_URL} target="_blank" rel="noopener noreferrer" className="no-print inline-block mt-1 text-[10px] text-brand-600 font-semibold uppercase tracking-wide hover:text-brand-800 transition-colors">
+                                  Explore FertiQ &rarr;
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* ── While You Wait — single compact block ── */}
+        <section className="mb-14">
+          <h3 className="font-serif text-[24px] font-bold text-gray-900 tracking-tight mb-5">While You Wait</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-[1px] bg-[#E3E9EA]">
+            <div className="bg-white p-5">
+              <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-3">Diet</p>
+              {FOOD_TIPS.map((tip, i) => (
+                <p key={i} className="text-[12px] text-gray-700 mb-1.5 last:mb-0">
+                  <span className="font-semibold text-gray-900">{tip.item}</span>
+                  <span className="text-gray-400"> — {tip.why}</span>
+                </p>
+              ))}
+            </div>
+            <div className="bg-white p-5">
+              <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-3">Lifestyle</p>
+              {LIFESTYLE_TIPS.map((tip, i) => (
+                <p key={i} className="text-[12px] text-gray-600 mb-1.5 last:mb-0">{tip}</p>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── Footer ── */}
+        <div className="flex flex-col md:flex-row items-center justify-between py-5 gap-3" style={{ borderTop: '1px solid rgba(198,197,210,0.15)' }}>
+          <div className="text-center md:text-left">
+            <p className="text-[10px] text-gray-400 uppercase tracking-wide">FM Code</p>
+            <p className="font-mono text-base font-bold text-gray-800 tracking-widest">{fmCode}</p>
+          </div>
+          <div className="flex items-center gap-3 text-[11px]">
+            <button onClick={handleCopy} className="font-semibold text-brand-600 hover:text-brand-800 cursor-pointer bg-transparent border-none transition-colors">{copied ? "Copied!" : "Copy"}</button>
+            <span className="text-gray-200">·</span>
+            <button onClick={onCompare} className="font-semibold text-brand-600 hover:text-brand-800 cursor-pointer bg-transparent border-none transition-colors">Compare</button>
+            <span className="text-gray-200">·</span>
+            <button onClick={onReset} className="font-semibold text-gray-400 hover:text-gray-700 cursor-pointer bg-transparent border-none transition-colors">Reset</button>
           </div>
         </div>
       </div>

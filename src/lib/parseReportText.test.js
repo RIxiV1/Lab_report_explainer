@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseReportText } from "./reportParser";
+import { parseReportText } from "./parseReportText";
 
 describe("parseReportText", () => {
   it("extracts all 6 values from a clean report", () => {
