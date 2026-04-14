@@ -3,22 +3,22 @@ import InputForm from "./components/InputForm";
 import ResultsDashboard from "./components/ResultsDashboard";
 import CompareView from "./components/CompareView";
 import { analyzeReport } from "./lib/analyzeReport";
-import { snippets } from "./lib/snippets";
-import { generateCode, saveResult, loadResult } from "./lib/fmCode";
+import { narratives } from "./lib/narratives";
+import { generateCode, saveResult, loadResult, cleanupExpiredResults } from "./lib/resultStore";
 import { DRAFT_KEY } from "./lib/constants";
 
-function applyModifier(snippet, key) {
-  const mod = snippets[key];
-  if (!mod) return snippet;
+function applyModifier(narrative, key) {
+  const mod = narratives[key];
+  if (!mod) return narrative;
   return {
-    ...snippet,
-    narrative: snippet.narrative + " " + mod.narrative,
-    actions: [...(snippet.actions || []), ...(mod.actions || [])],
+    ...narrative,
+    narrative: narrative.narrative + " " + mod.narrative,
+    actions: [...(narrative.actions || []), ...(mod.actions || [])],
   };
 }
 
-function getSnippet(snippetKey, urgencyFlag, ageFlag) {
-  let result = snippets[snippetKey] || snippets["FALLBACK"];
+function getNarrative(snippetKey, urgencyFlag, ageFlag) {
+  let result = narratives[snippetKey] || narratives.FALLBACK;
   if (urgencyFlag === "HIGH") result = applyModifier(result, "HIGH_URGENCY_MODIFIER");
   if (ageFlag) result = applyModifier(result, "AGE_MODIFIER");
   return result;
@@ -33,13 +33,19 @@ export default function App() {
   const [fmCode, setFmCode] = useState(null);
   const [lastResultDate, setLastResultDate] = useState(null);
   const [lookupError, setLookupError] = useState("");
-  // Auto-detect last result on mount
+  // On mount: purge old stored results (>6 months) and auto-detect last result
   useEffect(() => {
+    cleanupExpiredResults();
     try {
       const last = JSON.parse(localStorage.getItem(LAST_RESULT_KEY));
       if (last?.code && last?.date) {
-        setFmCode(last.code);
-        setLastResultDate(last.date);
+        // Verify the result still exists after cleanup — it may have expired
+        if (loadResult(last.code)) {
+          setFmCode(last.code);
+          setLastResultDate(last.date);
+        } else {
+          localStorage.removeItem(LAST_RESULT_KEY);
+        }
       }
     } catch {}
   }, []);
@@ -47,7 +53,7 @@ export default function App() {
   function handleSubmit(formData) {
     setLookupError("");
     const result = analyzeReport(formData);
-    const snippet = getSnippet(result.snippetKey, result.urgencyFlag, result.ageFlag);
+    const snippet = getNarrative(result.snippetKey, result.urgencyFlag, result.ageFlag);
     const code = generateCode();
     saveResult(code, result);
     setReportResult(result);
@@ -68,7 +74,7 @@ export default function App() {
     const stored = loadResult(fmCode);
     if (!stored) return;
     const result = stored.result;
-    const snippet = getSnippet(result.snippetKey, result.urgencyFlag, result.ageFlag);
+    const snippet = getNarrative(result.snippetKey, result.urgencyFlag, result.ageFlag);
     setReportResult(result);
     setActiveSnippet(snippet);
     setScreen("results");
@@ -82,7 +88,7 @@ export default function App() {
       return;
     }
     const result = stored.result;
-    const snippet = getSnippet(result.snippetKey, result.urgencyFlag, result.ageFlag);
+    const snippet = getNarrative(result.snippetKey, result.urgencyFlag, result.ageFlag);
     setReportResult(result);
     setActiveSnippet(snippet);
     setFmCode(code);

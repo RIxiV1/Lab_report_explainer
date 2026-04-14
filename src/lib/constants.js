@@ -5,23 +5,35 @@ export const PARAM_ORDER = ["spermCount", "motility", "morphology", "volume", "p
 export const REQUIRED_PARAMS = PARAM_ORDER;
 
 
+// Single source of truth for parameter display + analysis metadata.
+// Form-specific config (hint/tooltip/min/max/step) lives in FIELD_CONFIG below.
 export const PARAM_META = {
-  spermCount: { label: "Sperm Count", unit: "million/mL", whoRange: "≥ 16 million/mL", higherBetter: true },
-  motility: { label: "Total Motility", unit: "%", whoRange: "≥ 42%", higherBetter: true },
-  morphology: { label: "Morphology", unit: "%", whoRange: "≥ 4% (Kruger)", higherBetter: true },
-  volume: { label: "Volume", unit: "mL", whoRange: "1.4 – 7.6 mL", higherBetter: null },
-  pH: { label: "pH", unit: "", whoRange: "7.2 – 8.0", higherBetter: null },
-  wbc: { label: "WBC (Pus Cells)", unit: "million/mL", whoRange: "< 1 million/mL", higherBetter: false },
+  spermCount: { label: "Sperm Count",    unit: "million/mL", whoRange: "≥ 16 million/mL", higherBetter: true  },
+  motility:   { label: "Total Motility", unit: "%",          whoRange: "≥ 42%",           higherBetter: true  },
+  morphology: { label: "Morphology",     unit: "%",          whoRange: "≥ 4% (Kruger)",   higherBetter: true  },
+  volume:     { label: "Volume",         unit: "mL",         whoRange: "1.4 – 7.6 mL",    higherBetter: null  },
+  pH:         { label: "pH",             unit: "",           whoRange: "7.2 – 8.0",       higherBetter: null  },
+  wbc:        { label: "WBC (Pus Cells)", unit: "million/mL", whoRange: "< 1 million/mL", higherBetter: false },
 };
 
-export const REQUIRED_FIELDS = [
-  { key: "spermCount", label: "Sperm Count", unit: "million/mL", hint: "WHO: ≥ 16 million/mL", tooltip: "The concentration of sperm per millilitre of semen.", min: 0, max: 500, step: "any", extraNote: null },
-  { key: "motility", label: "Total Motility", unit: "%", hint: "WHO: ≥ 42%", tooltip: "The percentage of sperm that are moving.", min: 0, max: 100, step: "any", extraNote: null },
-  { key: "morphology", label: "Morphology", unit: "%", hint: "WHO: ≥ 4% (Kruger strict)", tooltip: "The percentage of sperm with a normal shape, using Kruger strict criteria.", min: 0, max: 100, step: "any", extraNote: "Even 2–3% is more common than you think." },
-  { key: "volume", label: "Semen Volume", unit: "mL", hint: "WHO: 1.4 – 7.6 mL", tooltip: "The total amount of semen produced in one ejaculate.", min: 0, max: 30, step: "any", extraNote: null },
-  { key: "pH", label: "pH", unit: "", hint: "WHO: 7.2 – 8.0", tooltip: "The acidity/alkalinity of the sample.", min: 0, max: 14, step: "any", extraNote: null },
-  { key: "wbc", label: "WBC (Pus Cells)", unit: "million/mL", hint: "WHO: < 1 million/mL", tooltip: "White blood cells or pus cells indicating potential inflammation.", min: 0, max: 100, step: "any", extraNote: null },
-];
+// Form-input config only — label/unit derive from PARAM_META.
+// Keys must match PARAM_ORDER; InputForm overrides `label` for "Semen Volume".
+const FIELD_CONFIG = {
+  spermCount: { hint: "WHO: ≥ 16 million/mL",     tooltip: "The concentration of sperm per millilitre of semen.", min: 0, max: 500, step: "any" },
+  motility:   { hint: "WHO: ≥ 42%",               tooltip: "The percentage of sperm that are moving.",             min: 0, max: 100, step: "any" },
+  morphology: { hint: "WHO: ≥ 4% (Kruger strict)", tooltip: "The percentage of sperm with a normal shape, using Kruger strict criteria.", min: 0, max: 100, step: "any", extraNote: "Even 2–3% is more common than you think." },
+  volume:     { hint: "WHO: 1.4 – 7.6 mL",        tooltip: "The total amount of semen produced in one ejaculate.", min: 0, max: 30,  step: "any", label: "Semen Volume" },
+  pH:         { hint: "WHO: 7.2 – 8.0",           tooltip: "The acidity/alkalinity of the sample.",               min: 0, max: 14,  step: "any" },
+  wbc:        { hint: "WHO: < 1 million/mL",      tooltip: "White blood cells or pus cells indicating potential inflammation.", min: 0, max: 100, step: "any" },
+};
+
+export const REQUIRED_FIELDS = PARAM_ORDER.map((key) => ({
+  key,
+  label: FIELD_CONFIG[key].label ?? PARAM_META[key].label,
+  unit: PARAM_META[key].unit,
+  extraNote: null,
+  ...FIELD_CONFIG[key],
+}));
 
 // ── TMSC (Total Motile Sperm Count) clinical tiers ─────────────────
 // TMSC = Volume × Concentration × (Total Motility / 100)

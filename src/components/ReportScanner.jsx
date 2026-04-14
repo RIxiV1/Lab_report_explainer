@@ -1,16 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import * as pdfjsLib from "pdfjs-dist";
-import { createWorker } from "tesseract.js";
 import { parseReportText } from "../lib/parseReportText";
 import { PARAM_META } from "../lib/constants";
-
-// Use local worker with CDN fallback to avoid cache/build issues
-try {
-  const pdfWorker = new URL("pdfjs-dist/build/pdf.worker.min.js", import.meta.url).href;
-  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
-} catch {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-}
 
 const STEPS_TEXT = [
   "Reading document locally...",
@@ -28,7 +18,65 @@ const STEPS_OCR = [
   "Done.",
 ];
 
-export default function MagicDropzone({ onExtracted, onAnalyzeNow }) {
+const STEPS_IMAGE = [
+  "Reading image...",
+  "Running OCR...",
+  "Matching values...",
+  "Done.",
+];
+
+const STEP_TICK_MS = 800;
+const PASTE_DELAY_MS = 300;
+const OCR_MAX_PAGES = 3;
+const PDF_RENDER_SCALE = 2.5;
+const MIN_USABLE_TEXT_LENGTH = 50;
+
+// ── Lazy loaders for heavy dependencies ─────────────────────────────
+// pdfjs-dist (~1MB) and tesseract.js are only loaded when the user
+// actually drops a file. The dropzone itself stays lightweight.
+let pdfjsPromise = null;
+function loadPdfjs() {
+  if (!pdfjsPromise) {
+    pdfjsPromise = import("pdfjs-dist").then((mod) => {
+      const pdfjsLib = mod.default || mod;
+      if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+        try {
+          pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+            "pdfjs-dist/build/pdf.worker.min.js",
+            import.meta.url
+          ).href;
+        } catch {
+          pdfjsLib.GlobalWorkerOptions.workerSrc =
+            `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+        }
+      }
+      return pdfjsLib;
+    });
+  }
+  return pdfjsPromise;
+}
+
+let tesseractPromise = null;
+function loadTesseract() {
+  if (!tesseractPromise) {
+    tesseractPromise = import("tesseract.js").then((mod) => mod.createWorker);
+  }
+  return tesseractPromise;
+}
+
+// Render a PDF page to a PNG data URL at high DPI for OCR accuracy.
+async function renderPageToImage(pdf, pageNum) {
+  const page = await pdf.getPage(pageNum);
+  const viewport = page.getViewport({ scale: PDF_RENDER_SCALE });
+  const canvas = document.createElement("canvas");
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext("2d");
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  return canvas.toDataURL("image/png");
+}
+
+export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
   const [isHovering, setIsHovering] = useState(false);
   const [status, setStatus] = useState("idle");
   const [message, setMessage] = useState("");
@@ -41,7 +89,7 @@ export default function MagicDropzone({ onExtracted, onAnalyzeNow }) {
     if (status !== "processing") return;
     const interval = setInterval(() => {
       setCurrentStep((p) => (p < steps.length - 1 ? p + 1 : p));
-    }, 800);
+    }, STEP_TICK_MS);
     return () => clearInterval(interval);
   }, [status, steps.length]);
 
@@ -57,27 +105,15 @@ export default function MagicDropzone({ onExtracted, onAnalyzeNow }) {
     }
   };
 
-  // Render a PDF page to a canvas and return a data URL.
-  const renderPageToImage = async (pdf, pageNum, scale = 2.5) => {
-    const page = await pdf.getPage(pageNum);
-    const viewport = page.getViewport({ scale });
-    const canvas = document.createElement("canvas");
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    const ctx = canvas.getContext("2d");
-    await page.render({ canvasContext: ctx, viewport }).promise;
-    return canvas.toDataURL("image/png");
-  };
-
-  // OCR fallback: render pages → Tesseract → parse.
-  const runOCR = async (pdf) => {
+  const runOCROnPdf = async (pdf) => {
     setSteps(STEPS_OCR);
     setCurrentStep(2);
 
+    const createWorker = await loadTesseract();
     const worker = await createWorker("eng");
     let fullText = "";
 
-    const pagesToScan = Math.min(pdf.numPages, 3);
+    const pagesToScan = Math.min(pdf.numPages, OCR_MAX_PAGES);
     for (let i = 1; i <= pagesToScan; i++) {
       setCurrentStep(3);
       const imgUrl = await renderPageToImage(pdf, i);
@@ -87,8 +123,6 @@ export default function MagicDropzone({ onExtracted, onAnalyzeNow }) {
 
     await worker.terminate();
     setCurrentStep(4);
-
-
     finishWithText(fullText);
   };
 
@@ -98,10 +132,10 @@ export default function MagicDropzone({ onExtracted, onAnalyzeNow }) {
     setCurrentStep(0);
 
     try {
+      const pdfjsLib = await loadPdfjs();
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
-      // Step 1: try pdfjs text extraction
       setCurrentStep(1);
       let fullText = "";
       for (let i = 1; i <= pdf.numPages; i++) {
@@ -110,16 +144,15 @@ export default function MagicDropzone({ onExtracted, onAnalyzeNow }) {
         fullText += tc.items.map((item) => item.str).join(" ") + " ";
       }
 
-      // Check if we got any real text (not just whitespace/page numbers)
+      // Detect whether the PDF has a usable text layer or is a scan
       const stripped = fullText.replace(/page\s*\d+\s*(of\s*\d+)?/gi, "").trim();
-      const hasUsableText = stripped.replace(/\s+/g, "").length > 50;
+      const hasUsableText = stripped.replace(/\s+/g, "").length > MIN_USABLE_TEXT_LENGTH;
 
       if (hasUsableText) {
         setCurrentStep(2);
         finishWithText(fullText);
       } else {
-        // No text layer → fall back to OCR
-        await runOCR(pdf);
+        await runOCROnPdf(pdf);
       }
     } catch (err) {
       console.error("PDF extraction failed:", err);
@@ -128,36 +161,35 @@ export default function MagicDropzone({ onExtracted, onAnalyzeNow }) {
     }
   };
 
-  const handleFile = (file) => {
-    if (!file) return;
-    if (file.type === "application/pdf") {
-      extractTextFromPDF(file);
-    } else if (file.type.startsWith("image/")) {
-      // Direct image upload → OCR
-      handleImageOCR(file);
-    } else {
-      setStatus("error");
-      setMessage("Please upload a PDF or image file.");
-    }
-  };
-
   const handleImageOCR = async (file) => {
     setStatus("processing");
-    setSteps(["Reading image...", "Running OCR...", "Matching values...", "Done."]);
+    setSteps(STEPS_IMAGE);
     setCurrentStep(0);
 
     try {
+      const createWorker = await loadTesseract();
       const worker = await createWorker("eng");
       setCurrentStep(1);
       const { data } = await worker.recognize(file);
       await worker.terminate();
       setCurrentStep(2);
-      if (typeof window !== "undefined") window.__ocrText = data.text;
       finishWithText(data.text);
     } catch (err) {
-      console.error(err);
+      console.error("Image OCR failed:", err);
       setStatus("error");
       setMessage("Failed to read image. Try pasting text instead.");
+    }
+  };
+
+  const handleFile = (file) => {
+    if (!file) return;
+    if (file.type === "application/pdf") {
+      extractTextFromPDF(file);
+    } else if (file.type.startsWith("image/")) {
+      handleImageOCR(file);
+    } else {
+      setStatus("error");
+      setMessage("Please upload a PDF or image file.");
     }
   };
 
@@ -174,7 +206,7 @@ export default function MagicDropzone({ onExtracted, onAnalyzeNow }) {
       setStatus("processing");
       setSteps(STEPS_TEXT);
       setCurrentStep(0);
-      setTimeout(() => finishWithText(text), 300);
+      setTimeout(() => finishWithText(text), PASTE_DELAY_MS);
     }
   };
 
@@ -191,7 +223,7 @@ export default function MagicDropzone({ onExtracted, onAnalyzeNow }) {
   if (status === "success" && extractedData) {
     const keys = Object.keys(extractedData);
     return (
-      <div className="mb-8 animate-editorial">
+      <div className="mb-8 animate-editorial" role="status" aria-live="polite">
         <div className="card-tonal p-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-8 h-8 flex items-center justify-center text-sm font-bold text-white" style={{ background: 'linear-gradient(135deg, #8BB992, #659F73)', boxShadow: '0 4px 12px rgba(101,159,115,0.3)' }}>✓</div>
@@ -237,7 +269,7 @@ export default function MagicDropzone({ onExtracted, onAnalyzeNow }) {
   // ── PROCESSING STATE ──
   if (status === "processing") {
     return (
-      <div className="mb-8">
+      <div className="mb-8" role="status" aria-live="polite" aria-busy="true">
         <div className="card-tonal p-10 md:p-14">
           <div className="flex flex-col items-center text-center space-y-6">
             <div className="w-10 h-10 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #36458E, #111852)', boxShadow: '0 8px 24px rgba(17,24,82,0.2)' }}>
@@ -273,6 +305,7 @@ export default function MagicDropzone({ onExtracted, onAnalyzeNow }) {
 
   // ── IDLE / ERROR STATE ──
   const bgClass = status === "error" ? "bg-orange-50" : isHovering ? "bg-[#E3E9EA]" : "bg-white";
+  const isError = status === "error";
 
   return (
     <div className="mb-8">
@@ -303,7 +336,11 @@ export default function MagicDropzone({ onExtracted, onAnalyzeNow }) {
             <h2 className="font-serif text-[22px] tracking-tight mb-2 text-gray-900">
               Upload Lab Report
             </h2>
-            <p className="text-[13px] text-gray-500 max-w-[320px] mx-auto leading-relaxed">
+            <p
+              className="text-[13px] text-gray-500 max-w-[320px] mx-auto leading-relaxed"
+              role={isError ? "alert" : undefined}
+              aria-live={isError ? "assertive" : "polite"}
+            >
               {message || "Drop a PDF or image here, click to browse, or paste your report text."}
             </p>
           </div>

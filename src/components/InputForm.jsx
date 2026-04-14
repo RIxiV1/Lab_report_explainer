@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { REQUIRED_FIELDS, FM_CODE_REGEX, DRAFT_KEY } from "../lib/constants";
 import Nav from "./Nav";
-import MagicDropzone from "./MagicDropzone";
+import ReportScanner from "./ReportScanner";
 
 function loadDraft() {
   try {
@@ -181,7 +181,11 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
           }}
         />
 
-        <p className={`text-[11px] mt-2 ${hasError ? "text-orange-600 font-medium" : "text-gray-400"}`}>
+        <p
+          className={`text-[11px] mt-2 ${hasError ? "text-orange-600 font-medium" : "text-gray-400"}`}
+          role={hasError ? "alert" : undefined}
+          aria-live={hasError ? "polite" : undefined}
+        >
           {hasError ? errors[field.key] : field.hint}
         </p>
         {field.extraNote && !hasError && (
@@ -252,7 +256,7 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
         {/* Entry view */}
         {entryMode === "scan" ? (
           <div className="animate-editorial">
-            <MagicDropzone onExtracted={handleExtractedData} onAnalyzeNow={handleAnalyzeNow} />
+            <ReportScanner onExtracted={handleExtractedData} onAnalyzeNow={handleAnalyzeNow} />
           </div>
         ) : (
           <div className="animate-editorial">
@@ -308,7 +312,7 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
                         className="h-[2px] mt-1"
                         style={{ background: 'linear-gradient(90deg, rgba(198,197,210,0.25) 0%, rgba(198,197,210,0.08) 100%)' }}
                       />
-                      {f.error && <p className="text-[11px] text-orange-600 mt-1">{f.error}</p>}
+                      {f.error && <p role="alert" aria-live="polite" className="text-[11px] text-orange-600 mt-1">{f.error}</p>}
                     </div>
                   ))}
                 </div>
@@ -341,7 +345,7 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
               <button type="button" onClick={handleFMCodeLoad} className="btn-primary px-4 py-2.5">Load</button>
             </div>
             {(fmCodeError || lookupError) && (
-              <p className="text-[11px] text-orange-600 mt-1.5">{fmCodeError || lookupError}</p>
+              <p role="alert" aria-live="polite" className="text-[11px] text-orange-600 mt-1.5">{fmCodeError || lookupError}</p>
             )}
           </div>
         </details>

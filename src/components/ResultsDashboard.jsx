@@ -184,7 +184,7 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
           {/* Buttons */}
           <div className="no-print flex gap-2 flex-wrap">
             <button onClick={() => window.print()} className="bg-white text-[#111852] font-semibold px-5 py-2.5 text-[11px] uppercase tracking-wide cursor-pointer hover:bg-gray-100 transition-colors" style={{ boxShadow: '0 4px 16px rgba(17,24,82,0.2)' }}>
-              Download PDF
+              Print Report
             </button>
             <button onClick={handleWhatsApp} className="bg-[#36458E] text-white font-semibold px-5 py-2.5 text-[11px] uppercase tracking-wide cursor-pointer hover:bg-[#283573] transition-colors">
               Share

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { loadResult } from "../lib/fmCode";
+import { loadResult } from "../lib/resultStore";
 import { PARAM_ORDER, PARAM_META, FM_CODE_REGEX, STATUS_CONFIG, STATUS_LABELS, STATUS_RANK } from "../lib/constants";
 import Nav from "./Nav";
 
@@ -7,17 +7,21 @@ function getDelta(oldVal, newVal, higherBetter) {
   if (oldVal == null || newVal == null) return null;
   const diff = newVal - oldVal;
   if (diff === 0) return { label: "No change", color: "text-gray-400" };
-  const pct = oldVal !== 0 ? Math.abs((diff / oldVal) * 100).toFixed(0) : "—";
   const arrow = diff > 0 ? "↑" : "↓";
+  const label = oldVal !== 0
+    ? `${arrow} ${Math.abs((diff / oldVal) * 100).toFixed(0)}%`
+    : `${arrow} ${Math.abs(diff).toFixed(1)}`; // fall back to absolute delta when pct is undefined
   let color = "text-gray-400";
   if (higherBetter === true) color = diff > 0 ? "text-green-700" : "text-red-700";
   else if (higherBetter === false) color = diff < 0 ? "text-green-700" : "text-red-700";
-  return { label: `${arrow} ${pct}%`, color };
+  return { label, color };
 }
 
 export default function CompareView({ onBack, onLogoClick, initialCode }) {
-  const [codeA, setCodeA] = useState(initialCode || "");
-  const [codeB, setCodeB] = useState("");
+  // codeA = older report (user types this in)
+  // codeB = newer report (pre-filled with current session's code)
+  const [codeA, setCodeA] = useState("");
+  const [codeB, setCodeB] = useState(initialCode || "");
   const [resultA, setResultA] = useState(null);
   const [resultB, setResultB] = useState(null);
   const [error, setError] = useState("");
@@ -94,7 +98,7 @@ export default function CompareView({ onBack, onLogoClick, initialCode }) {
           ))}
         </div>
 
-        {error && <p role="alert" className="text-[13px] text-orange-600 mb-4">{error}</p>}
+        {error && <p role="alert" aria-live="polite" className="text-[13px] text-orange-600 mb-4">{error}</p>}
 
         <button onClick={handleCompare} className="btn-primary px-7 py-3 mb-12">
           Compare Reports

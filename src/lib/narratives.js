@@ -1,8 +1,11 @@
-// src/lib/snippets.js
-// FM Lab Report Explainer — Narrative Snippet Library
+// src/lib/narratives.js
+// FM Lab Report Explainer — Clinical Narrative Library
 // ForMen Health · https://formen.health
+//
+// Each entry maps a snippetKey (from analyzeReport.js) to the text
+// content shown in the verdict hero, action timeline, and modals.
 
-export const snippets = {
+export const narratives = {
 
   ALL_NORMAL: {
     verdictCard:
