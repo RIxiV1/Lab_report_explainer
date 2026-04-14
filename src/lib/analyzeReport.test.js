@@ -105,8 +105,12 @@ describe("analyzeReport", () => {
     it("classifies 8.1-8.5 as WARNING", () => {
       expect(analyze({ pH: 8.3 }).parameters.pH.status).toBe("WARNING");
     });
-    it("classifies <7.2 or >8.5 as CRITICAL", () => {
-      expect(analyze({ pH: 7.0 }).parameters.pH.status).toBe("CRITICAL");
+    it("classifies 7.0-7.19 as WARNING (low side)", () => {
+      expect(analyze({ pH: 7.0 }).parameters.pH.status).toBe("WARNING");
+      expect(analyze({ pH: 7.1 }).parameters.pH.status).toBe("WARNING");
+    });
+    it("classifies <7.0 or >8.5 as CRITICAL", () => {
+      expect(analyze({ pH: 6.9 }).parameters.pH.status).toBe("CRITICAL");
       expect(analyze({ pH: 9.0 }).parameters.pH.status).toBe("CRITICAL");
     });
   });
@@ -155,9 +159,10 @@ describe("analyzeReport", () => {
     expect(r.snippetKey).toBe("ELEVATED_WBC");
   });
 
-  it("selects ABNORMAL_PH_LOW for low pH", () => {
+  it("selects ABNORMAL_PH_LOW for critically low pH", () => {
     const r = analyze({ pH: 6.5 });
     expect(r.snippetKey).toBe("ABNORMAL_PH_LOW");
+    expect(r.verdict).toBe("ACT_NOW");
   });
 
   it("selects ABNORMAL_PH_HIGH for high pH", () => {

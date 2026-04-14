@@ -21,15 +21,14 @@
 // formally defined; we retain a practical soft-ceiling for infection
 // screening only.
 
-import { PARAM_ORDER, REQUIRED_PARAMS, TMSC_TIERS } from "./constants";
+import { PARAM_ORDER, PARAM_META, REQUIRED_PARAMS, TMSC_TIERS } from "./constants";
 
 const THRESHOLDS = {
-  spermCount:          { normalMin: 16,  warningMin: 5  },
-  motility:            { normalMin: 42,  warningMin: 30 },
-  morphology:          { normalMin: 4,   warningMin: 2  },
-  volume:              { normalMin: 1.4, warningMin: 0.5 },
-  pH:                  { normalMin: 7.2, warningMin: 7.0 },
-  wbc:                 { normalMax: 1.0, warningMax: 2.0 },
+  spermCount: { normalMin: 16, warningMin: 5 },
+  motility:   { normalMin: 42, warningMin: 30 },
+  morphology: { normalMin: 4,  warningMin: 2 },
+  wbc:        { normalMax: 1.0, warningMax: 2.0 },
+  // volume and pH use dedicated classifiers below (range-based, not simple min/max)
 };
 
 function classifySimple(value, normalMin, warningMin) {
@@ -52,9 +51,10 @@ function classifyVolume(value) {
 }
 
 // pH: WHO 2021 states ≥ 7.2. Clinically, >8.0 is borderline and >8.5 suggests issues.
+// Low pH (7.0–7.19) is borderline, not immediately critical.
 function classifyPH(value) {
   if (value >= 7.2 && value <= 8.0) return "NORMAL";
-  if (value > 8.0 && value <= 8.5) return "WARNING";
+  if ((value >= 7.0 && value < 7.2) || (value > 8.0 && value <= 8.5)) return "WARNING";
   return "CRITICAL";
 }
 
@@ -69,15 +69,6 @@ function getStatus(param, value) {
     default:           return "NORMAL";
   }
 }
-
-const WHO_RANGES = {
-  spermCount:          { whoRange: "≥ 16 million/mL", unit: "million/mL" },
-  motility:            { whoRange: "≥ 42%",           unit: "%" },
-  morphology:          { whoRange: "≥ 4% (Kruger)",   unit: "%" },
-  volume:              { whoRange: "1.4 – 7.6 mL",    unit: "mL" },
-  pH:                  { whoRange: "7.2 – 8.0",       unit: "" },
-  wbc:                 { whoRange: "< 1 million/mL",  unit: "million/mL" },
-};
 
 const CORE_PARAMS = ["spermCount", "motility", "morphology"];
 const SECONDARY_PARAMS = ["volume", "pH", "wbc"];
@@ -127,7 +118,8 @@ export function analyzeReport(inputs) {
     if (!hasValue(value)) continue;
     const status = getStatus(p, value);
     statuses[p] = status;
-    parameters[p] = { value, status, ...WHO_RANGES[p] };
+    const { whoRange, unit } = PARAM_META[p];
+    parameters[p] = { value, status, whoRange, unit };
   }
 
   const providedParams = Object.keys(parameters);

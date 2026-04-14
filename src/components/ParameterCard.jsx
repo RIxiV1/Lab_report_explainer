@@ -1,4 +1,4 @@
-import { useState, memo } from "react";
+import { useState, useEffect, memo } from "react";
 import { STATUS_CONFIG } from "../lib/constants";
 
 const DEEPER = {
@@ -17,6 +17,17 @@ const STATUS_BORDER = {
 };
 
 function InfoModal({ paramName, text, onClose }) {
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    function onKey(e) { if (e.key === "Escape") onClose(); }
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-6" onClick={onClose}>
       <div className="absolute inset-0 bg-brand-900/60 backdrop-blur-[8px]" />

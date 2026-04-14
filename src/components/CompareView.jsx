@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useFMCode } from "../hooks/useFMCode";
+import { loadResult } from "../lib/fmCode";
 import { PARAM_ORDER, PARAM_META, FM_CODE_REGEX, STATUS_CONFIG, STATUS_LABELS, STATUS_RANK } from "../lib/constants";
 import Nav from "./Nav";
 
@@ -15,8 +15,7 @@ function getDelta(oldVal, newVal, higherBetter) {
   return { label: `${arrow} ${pct}%`, color };
 }
 
-export default function CompareView({ onBack, initialCode }) {
-  const { loadResult } = useFMCode();
+export default function CompareView({ onBack, onLogoClick, initialCode }) {
   const [codeA, setCodeA] = useState(initialCode || "");
   const [codeB, setCodeB] = useState("");
   const [resultA, setResultA] = useState(null);
@@ -41,8 +40,10 @@ export default function CompareView({ onBack, initialCode }) {
 
   function handleCompare() {
     setError("");
+    setResultA(null);
+    setResultB(null);
     if (!loadCode(codeA, setResultA)) return;
-    loadCode(codeB, setResultB);
+    if (!loadCode(codeB, setResultB)) return;
   }
 
   const hasResults = resultA && resultB;
@@ -63,7 +64,7 @@ export default function CompareView({ onBack, initialCode }) {
 
   return (
     <div className="min-h-screen bg-[#F4FAFB]">
-      <Nav>
+      <Nav onLogoClick={onLogoClick}>
         <button onClick={onBack} className="btn-secondary px-3.5 py-[7px]">&larr; Back to Report</button>
       </Nav>
 
@@ -86,10 +87,7 @@ export default function CompareView({ onBack, initialCode }) {
                 placeholder="FM-XXXX-XXXX"
                 value={input.value}
                 onChange={(e) => { input.setter(e.target.value); setError(""); }}
-                className="w-full bg-transparent px-0 py-2.5 text-sm tracking-wider uppercase box-border focus:outline-none"
-                style={{ borderBottom: '2px solid rgba(198,197,210,0.3)' }}
-                onFocus={(e) => e.target.style.borderBottomColor = '#36458E'}
-                onBlur={(e) => e.target.style.borderBottomColor = 'rgba(198,197,210,0.3)'}
+                className="w-full bg-transparent px-0 py-2.5 text-sm tracking-wider uppercase box-border focus:outline-none border-b-2 border-neutral-300/30 focus:border-brand-500 transition-colors"
                 aria-label={`${input.label} FM Code`}
               />
             </div>

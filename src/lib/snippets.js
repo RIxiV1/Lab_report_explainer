@@ -51,7 +51,7 @@ export const snippets = {
       { timeline: "90 Days", action: "Retest morphology alongside a full semen analysis to assess improvement", fertiQ: false },
     ],
     morphologyNote:
-      "A morphology score of 3% or even 2% can look alarming, but remember: the normal threshold is only 4%. The difference between 3% and 4% in a sample of millions of sperm is clinically minor, and many men conceive naturally with scores in this range.",
+      "A shape score of 3% or even 2% can look scary, but the 'normal' bar is only 4%. The difference between 3% and 4% out of millions of sperm is tiny, and many men have children naturally with scores like this.",
   },
 
   LOW_COUNT_LOW_MOTILITY: {
@@ -101,7 +101,7 @@ export const snippets = {
       { timeline: "90 Days", action: "Repeat full semen analysis and compare all three parameters to this baseline", fertiQ: false },
     ],
     morphologyNote:
-      "Seeing a low morphology number alongside other low values can feel especially daunting, but remember: the WHO 'normal' threshold is just 4%. Morphology is the noisiest metric on a semen analysis and varies significantly between labs and even between samples from the same person.",
+      "A low shape score alongside other low numbers can feel overwhelming, but remember: the 'normal' bar is just 4%. Shape is the most variable number on a semen report and can change a lot between tests, even at the same lab.",
   },
 
   CRITICAL_COUNT: {

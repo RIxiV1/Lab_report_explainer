@@ -59,7 +59,10 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
 
   function handleBlur(field, requireValue) {
     setTouched((p) => ({ ...p, [field.key]: true }));
-    setErrors((p) => ({ ...p, [field.key]: validate(field, values[field.key], { requireValue }) }));
+    setValues((currentValues) => {
+      setErrors((p) => ({ ...p, [field.key]: validate(field, currentValues[field.key], { requireValue }) }));
+      return currentValues;
+    });
   }
 
   const filledRequired = REQUIRED_FIELDS.filter((f) => values[f.key] !== "" && values[f.key] !== undefined).length;
@@ -190,7 +193,7 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
 
   return (
     <div className="min-h-screen bg-[#F4FAFB]">
-      <Nav>
+      <Nav onLogoClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
         {onBackToReport && (
           <button onClick={onBackToReport} className="btn-secondary">Back to Report</button>
         )}

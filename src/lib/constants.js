@@ -1,10 +1,9 @@
 export const PARAM_ORDER = ["spermCount", "motility", "morphology", "volume", "pH", "wbc"];
 
-// Parameters users MUST provide for a meaningful analysis.
-export const REQUIRED_PARAMS = ["spermCount", "motility", "morphology", "volume", "pH", "wbc"];
+// Currently all params are required. If optional params are added later,
+// this can diverge from PARAM_ORDER.
+export const REQUIRED_PARAMS = PARAM_ORDER;
 
-// We no longer have optional parameters. Every metric is critical.
-export const OPTIONAL_PARAMS = [];
 
 export const PARAM_META = {
   spermCount: { label: "Sperm Count", unit: "million/mL", whoRange: "≥ 16 million/mL", higherBetter: true },
@@ -23,11 +22,6 @@ export const REQUIRED_FIELDS = [
   { key: "pH", label: "pH", unit: "", hint: "WHO: 7.2 – 8.0", tooltip: "The acidity/alkalinity of the sample.", min: 0, max: 14, step: "any", extraNote: null },
   { key: "wbc", label: "WBC (Pus Cells)", unit: "million/mL", hint: "WHO: < 1 million/mL", tooltip: "White blood cells or pus cells indicating potential inflammation.", min: 0, max: 100, step: "any", extraNote: null },
 ];
-
-export const OPTIONAL_FIELDS = [];
-
-// Kept for any legacy imports; will be removed once all consumers migrate.
-export const INPUT_FIELDS = [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS];
 
 // ── TMSC (Total Motile Sperm Count) clinical tiers ─────────────────
 // TMSC = Volume × Concentration × (Total Motility / 100)

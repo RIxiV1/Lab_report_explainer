@@ -4,12 +4,17 @@ import ResultsDashboard from "./components/ResultsDashboard";
 import CompareView from "./components/CompareView";
 import { analyzeReport } from "./lib/analyzeReport";
 import { snippets } from "./lib/snippets";
-import { useFMCode } from "./hooks/useFMCode";
+import { generateCode, saveResult, loadResult } from "./lib/fmCode";
 import { DRAFT_KEY } from "./lib/constants";
 
 function applyModifier(snippet, key) {
   const mod = snippets[key];
-  return mod ? { ...snippet, narrative: snippet.narrative + " " + mod.narrative } : snippet;
+  if (!mod) return snippet;
+  return {
+    ...snippet,
+    narrative: snippet.narrative + " " + mod.narrative,
+    actions: [...(snippet.actions || []), ...(mod.actions || [])],
+  };
 }
 
 function getSnippet(snippetKey, urgencyFlag, ageFlag) {
@@ -28,8 +33,6 @@ export default function App() {
   const [fmCode, setFmCode] = useState(null);
   const [lastResultDate, setLastResultDate] = useState(null);
   const [lookupError, setLookupError] = useState("");
-  const { generateCode, saveResult, loadResult } = useFMCode();
-
   // Auto-detect last result on mount
   useEffect(() => {
     try {
@@ -138,6 +141,7 @@ export default function App() {
       {screen === "compare" && (
         <CompareView
           onBack={() => setScreen("results")}
+          onLogoClick={handleReset}
           initialCode={fmCode}
         />
       )}

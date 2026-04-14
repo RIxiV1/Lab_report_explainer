@@ -88,7 +88,7 @@ export default function MagicDropzone({ onExtracted, onAnalyzeNow }) {
     await worker.terminate();
     setCurrentStep(4);
 
-    if (typeof window !== "undefined") window.__ocrText = fullText;
+
     finishWithText(fullText);
   };
 
@@ -116,7 +116,6 @@ export default function MagicDropzone({ onExtracted, onAnalyzeNow }) {
 
       if (hasUsableText) {
         setCurrentStep(2);
-        if (typeof window !== "undefined") window.__pdfText = fullText;
         finishWithText(fullText);
       } else {
         // No text layer → fall back to OCR
@@ -185,6 +184,7 @@ export default function MagicDropzone({ onExtracted, onAnalyzeNow }) {
     setExtractedData(null);
     setCurrentStep(0);
     setSteps(STEPS_TEXT);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   // ── SUCCESS STATE ──
