@@ -64,6 +64,50 @@ function loadTesseract() {
   return tesseractPromise;
 }
 
+// Lab PDFs vary wildly. We try multiple reconstruction strategies and
+// pick whichever gives the parser the most matches. Empirically, Dr Lal
+// PathLabs and Metropolis use table layouts where content-stream order
+// != reading order — stream-join yields garbage, spatial grouping works.
+// Other labs are the opposite. Trying both is cheap and robust.
+
+// Strategy 1: group items by Y coordinate, sort left-to-right within a
+// line. Handles tables and multi-column layouts.
+function reconstructByPosition(textContent, yTolerance = 5) {
+  const lines = [];
+  for (const item of textContent.items) {
+    if (!item.str || !item.str.trim()) continue;
+    const x = item.transform?.[4] ?? 0;
+    const y = item.transform?.[5] ?? 0;
+    let line = lines.find((l) => Math.abs(l.y - y) < yTolerance);
+    if (!line) {
+      line = { y, items: [] };
+      lines.push(line);
+    }
+    line.items.push({ x, str: item.str });
+  }
+  lines.sort((a, b) => b.y - a.y); // PDF Y increases upward → reverse
+  for (const line of lines) line.items.sort((a, b) => a.x - b.x);
+  return lines.map((l) => l.items.map((i) => i.str).join(" ")).join("\n");
+}
+
+// Strategy 2: naive stream-order join. Works for simple linear PDFs.
+function reconstructByStream(textContent) {
+  return textContent.items.map((i) => i.str || "").join(" ");
+}
+
+// Strategy 3: stream order but with newlines when pdfjs signals EOL
+// (modern pdfjs sets hasEOL on the last item of each line). Preserves
+// line breaks without needing spatial math.
+function reconstructByEOL(textContent) {
+  let result = "";
+  for (const item of textContent.items) {
+    result += item.str || "";
+    if (item.hasEOL) result += "\n";
+    else result += " ";
+  }
+  return result;
+}
+
 // Render a PDF page to a PNG data URL at high DPI for OCR accuracy.
 async function renderPageToImage(pdf, pageNum) {
   const page = await pdf.getPage(pageNum);
@@ -83,6 +127,7 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
   const [steps, setSteps] = useState(STEPS_TEXT);
   const [currentStep, setCurrentStep] = useState(0);
   const [extractedData, setExtractedData] = useState(null);
+  const [pastedText, setPastedText] = useState("");
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -93,37 +138,54 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
     return () => clearInterval(interval);
   }, [status, steps.length]);
 
-  const finishWithText = (text) => {
+  // Try parsing a candidate text; returns the parsed result if any
+  // metrics were found, else null.
+  const tryParse = (text) => {
     const result = parseReportText(text);
-    if (result.foundCount > 0) {
-      setStatus("success");
-      setExtractedData(result.results);
-      onExtracted(result.results);
-    } else {
-      setStatus("error");
-      setMessage("Could not find semen analysis metrics. Try manual entry.");
-    }
+    return result.foundCount > 0 ? result : null;
+  };
+
+  const finishWithResult = (parsed) => {
+    setStatus("success");
+    setExtractedData(parsed.results);
+    onExtracted(parsed.results);
+  };
+
+  const finishWithError = (msg) => {
+    setStatus("error");
+    setMessage(msg);
+  };
+
+  const finishWithText = (text) => {
+    const parsed = tryParse(text);
+    if (parsed) finishWithResult(parsed);
+    else finishWithError("Could not find semen analysis metrics. Try pasting the report text or use manual entry.");
   };
 
   const runOCROnPdf = async (pdf) => {
     setSteps(STEPS_OCR);
     setCurrentStep(2);
 
-    const createWorker = await loadTesseract();
-    const worker = await createWorker("eng");
-    let fullText = "";
+    try {
+      const createWorker = await loadTesseract();
+      const worker = await createWorker("eng");
+      let fullText = "";
 
-    const pagesToScan = Math.min(pdf.numPages, OCR_MAX_PAGES);
-    for (let i = 1; i <= pagesToScan; i++) {
-      setCurrentStep(3);
-      const imgUrl = await renderPageToImage(pdf, i);
-      const { data } = await worker.recognize(imgUrl);
-      fullText += data.text + "\n";
+      const pagesToScan = Math.min(pdf.numPages, OCR_MAX_PAGES);
+      for (let i = 1; i <= pagesToScan; i++) {
+        setCurrentStep(3);
+        const imgUrl = await renderPageToImage(pdf, i);
+        const { data } = await worker.recognize(imgUrl);
+        fullText += data.text + "\n";
+      }
+
+      await worker.terminate();
+      setCurrentStep(4);
+      finishWithText(fullText);
+    } catch (err) {
+      console.error("PDF OCR failed:", err);
+      finishWithError("Could not read this PDF. Try uploading a clearer image or pasting the report text.");
     }
-
-    await worker.terminate();
-    setCurrentStep(4);
-    finishWithText(fullText);
   };
 
   const extractTextFromPDF = async (file) => {
@@ -137,27 +199,51 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
       setCurrentStep(1);
-      let fullText = "";
+
+      // Collect all pages' textContent once, then try multiple
+      // reconstruction strategies on the same data.
+      const pageContents = [];
+      let totalCharCount = 0;
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const tc = await page.getTextContent();
-        fullText += tc.items.map((item) => item.str).join(" ") + " ";
+        pageContents.push(tc);
+        totalCharCount += tc.items.reduce((n, it) => n + (it.str?.length || 0), 0);
       }
 
-      // Detect whether the PDF has a usable text layer or is a scan
-      const stripped = fullText.replace(/page\s*\d+\s*(of\s*\d+)?/gi, "").trim();
-      const hasUsableText = stripped.replace(/\s+/g, "").length > MIN_USABLE_TEXT_LENGTH;
-
-      if (hasUsableText) {
-        setCurrentStep(2);
-        finishWithText(fullText);
-      } else {
+      // If the text layer is basically empty, skip straight to OCR
+      if (totalCharCount < MIN_USABLE_TEXT_LENGTH) {
         await runOCROnPdf(pdf);
+        return;
       }
+
+      // Try each strategy; pick the one with the most parser matches
+      const candidates = [
+        pageContents.map((tc) => reconstructByPosition(tc)).join("\n"),
+        pageContents.map((tc) => reconstructByEOL(tc)).join("\n"),
+        pageContents.map((tc) => reconstructByStream(tc)).join("\n"),
+      ];
+
+      let best = null;
+      for (const text of candidates) {
+        const parsed = tryParse(text);
+        if (parsed && (!best || parsed.foundCount > best.foundCount)) {
+          best = parsed;
+        }
+      }
+
+      if (best) {
+        setCurrentStep(2);
+        finishWithResult(best);
+        return;
+      }
+
+      // Text layer exists but nothing parses — likely a rendered-image
+      // PDF with junk text annotations. Fall back to OCR.
+      await runOCROnPdf(pdf);
     } catch (err) {
       console.error("PDF extraction failed:", err);
-      setStatus("error");
-      setMessage("Could not read this PDF. Try uploading an image or pasting the report text instead.");
+      finishWithError("Could not read this PDF. Try uploading an image or pasting the report text instead.");
     }
   };
 
@@ -214,9 +300,19 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
     setStatus("idle");
     setMessage("");
     setExtractedData(null);
+    setPastedText("");
     setCurrentStep(0);
     setSteps(STEPS_TEXT);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handlePastedTextSubmit = () => {
+    const text = pastedText.trim();
+    if (!text) return;
+    setStatus("processing");
+    setSteps(STEPS_TEXT);
+    setCurrentStep(0);
+    setTimeout(() => finishWithText(text), PASTE_DELAY_MS);
   };
 
   // ── SUCCESS STATE ──
@@ -303,9 +399,50 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
     );
   }
 
-  // ── IDLE / ERROR STATE ──
-  const bgClass = status === "error" ? "bg-orange-50" : isHovering ? "bg-[#E3E9EA]" : "bg-white";
-  const isError = status === "error";
+  // ── ERROR STATE (with paste-text recovery) ──
+  if (status === "error") {
+    return (
+      <div className="mb-8 animate-editorial">
+        <div className="card-tonal bg-orange-50 p-8">
+          <div className="flex items-start gap-3 mb-5">
+            <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center text-white text-sm font-bold" style={{ background: '#c2410c' }}>!</div>
+            <div>
+              <p className="text-[14px] font-semibold text-gray-900 mb-1">We couldn't read this file</p>
+              <p role="alert" aria-live="assertive" className="text-[13px] text-gray-600 leading-relaxed">{message}</p>
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <label htmlFor="report-paste" className="label-clinical block mb-2">Paste report text instead</label>
+            <textarea
+              id="report-paste"
+              value={pastedText}
+              onChange={(e) => setPastedText(e.target.value)}
+              placeholder="Paste the full text of your report here. We'll look for sperm count, motility, morphology, volume, pH, and WBC."
+              className="w-full bg-white p-3 text-[13px] leading-relaxed border border-[#E3E9EA] focus:outline-none focus:border-brand-500 transition-colors resize-y"
+              rows={6}
+            />
+          </div>
+
+          <div className="flex gap-3 flex-wrap items-center">
+            <button
+              onClick={handlePastedTextSubmit}
+              disabled={pastedText.trim().length < 20}
+              className="btn-primary py-2.5 px-5 text-[11px]"
+            >
+              Parse Pasted Text
+            </button>
+            <button onClick={handleReset} className="text-[11px] text-gray-500 hover:text-gray-800 cursor-pointer bg-transparent border-none uppercase tracking-wide font-semibold transition-colors">
+              Try another file
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── IDLE STATE ──
+  const bgClass = isHovering ? "bg-[#E3E9EA]" : "bg-white";
 
   return (
     <div className="mb-8">
@@ -336,12 +473,8 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
             <h2 className="font-serif text-[22px] tracking-tight mb-2 text-gray-900">
               Upload Lab Report
             </h2>
-            <p
-              className="text-[13px] text-gray-500 max-w-[320px] mx-auto leading-relaxed"
-              role={isError ? "alert" : undefined}
-              aria-live={isError ? "assertive" : "polite"}
-            >
-              {message || "Drop a PDF or image here, click to browse, or paste your report text."}
+            <p className="text-[13px] text-gray-500 max-w-[320px] mx-auto leading-relaxed">
+              Drop a PDF or image here, click to browse, or paste your report text.
             </p>
           </div>
 

@@ -4,19 +4,21 @@
 //   - Simple "Key: Value" text (pasted from a screenshot or email)
 //   - Indian lab formats (SRL, Thyrocare, Metropolis, Dr Lal PathLabs)
 //   - UK/CREATE Fertility-style tables with unit annotations
-//   - PDFs where text extraction inserts spurious spaces between
-//     characters (e.g. "v olume", "1 . 9 0", "Total   m otility %")
+//   - PDFs with mild spacing artefacts around decimal points
+//
+// IMPORTANT: we deliberately do NOT merge digit-space-digit (e.g. "5 0"
+// → "50"). Many lab reports place multiple numeric values on the same
+// visual line (value + reference range + other cells). Aggressive
+// digit merging corrupts pH 7.5 into 7.707 when an adjacent cell has
+// nearby digits. OCR-glitched single-digit splits are a rarer failure
+// mode and are better handled by the paste-text fallback.
 
 function normalize(text) {
-  let t = text.replace(/\s+/g, " ");
-  let prev;
-  do {
-    prev = t;
-    t = t.replace(/(\d) (\d)/g, "$1$2");
-    t = t.replace(/(\d) \./g, "$1.");
-    t = t.replace(/\. (\d)/g, ".$1");
-    t = t.replace(/(\d) %/g, "$1%");
-  } while (t !== prev);
+  let t = text.replace(/[ \t\r\f\v]+/g, " "); // collapse horizontal whitespace only
+  t = t.replace(/ *\n+ */g, "\n");            // clean up newlines; keep as row boundaries
+  t = t.replace(/(\d) \./g, "$1.");           // "5 ." → "5."  (decimal repair)
+  t = t.replace(/\. (\d)/g, ".$1");           // ". 5" → ".5"  (decimal repair)
+  t = t.replace(/(\d) %/g, "$1%");            // "5 %" → "5%"
   return t;
 }
 
@@ -50,14 +52,18 @@ const PARAMS = [
   },
   {
     key: "motility",
+    // Order matters: WHO canonical is "total motility" (a+b+c).
+    // "Total motile" phrasing is common on Indian labs. Only fall back to
+    // "all progressive" (a+b) if neither total variant was found, since
+    // the numeric thresholds are different (42% vs 30%).
     keywords: [
       "total motility",
+      "total motile",
       "motility total",
       "all progressive",
-      "total motile",
       "motility",
     ],
-    guard: (matchedText) => !/immotile/.test(matchedText.toLowerCase()),
+    guard: (matchedText) => !/immotile|non[-\s]*progressive/.test(matchedText.toLowerCase()),
   },
   {
     key: "morphology",
@@ -94,11 +100,20 @@ const PARAMS = [
       "leukocytes",
       "white blood cells",
     ],
+    // Indian labs commonly report pus cells as "/hpf" (per high-power field).
+    // That unit is NOT comparable to million/mL thresholds used here.
+    // If /hpf is present in the matched region, skip extraction so the
+    // user can enter the correctly-unit'd value manually.
+    rejectIfNear: /\/\s*hpf|per\s*hpf|high[-\s]*power/i,
   },
 ];
 
+// Look up to 40 chars beyond the matched number to check for unit markers
+// that would invalidate the reading (e.g. "/hpf" on pus cells).
+const REJECT_LOOKAHEAD = 40;
+
 function findValue(text, param) {
-  const { key, keywords, guard, fallbackRegex } = param;
+  const { key, keywords, guard, fallbackRegex, rejectIfNear } = param;
   const bounds = SANITY[key];
 
   for (const kw of keywords) {
@@ -109,6 +124,10 @@ function findValue(text, param) {
       const value = parseFloat(match[1]);
       if (isNaN(value)) continue;
       if (bounds && (value < bounds.min || value > bounds.max)) continue;
+      if (rejectIfNear) {
+        const after = text.slice(match.index + match[0].length, match.index + match[0].length + REJECT_LOOKAHEAD);
+        if (rejectIfNear.test(after)) continue;
+      }
       return { value, matched: match[0].trim() };
     }
   }
