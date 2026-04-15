@@ -58,10 +58,13 @@ describe("parseReportText", () => {
 
   // ── Dr Lal PathLabs / Indian lab edge cases ──────────────────────
 
-  it("skips WBC when reported in /hpf units (not million/mL)", () => {
+  it("does not grade /hpf pus cells against million/mL threshold, but surfaces as a warning", () => {
     const text = "Pus Cells 2-3 /hpf\nRBC Nil /hpf";
     const r = parseReportText(text);
     expect(r.results.wbc).toBeUndefined();
+    expect(r.unitWarnings.wbc).toBeDefined();
+    expect(r.unitWarnings.wbc.value).toBe(2);
+    expect(r.unitWarnings.wbc.rawUnit).toBe("/hpf");
   });
 
   it("accepts WBC when explicitly in million/mL", () => {
@@ -116,6 +119,109 @@ All progressive (a+b) 73.00 %
 Vitality (Eosin-Nigrosin stain) 5.00 % >54`;
     const r = parseReportText(text);
     expect(r.results.motility).toBe(73);
+  });
+
+  // ── Regression coverage for major Indian + UK lab formats ────────
+  // Fixtures reflect typical phrasing/ordering. Not perfect — real PDFs
+  // may vary — but much better than testing only one format.
+
+  it("extracts SRL Diagnostics format", () => {
+    const text = `
+      SEMEN ANALYSIS
+      Volume    3.2    ml    1.4 - 7.6
+      pH    7.8    7.2 - 8.0
+      Sperm Concentration    45    million/ml    >= 16
+      Total Motility    52    %    >= 42
+      Progressive Motility    38    %    >= 30
+      Normal Morphology    5    %    >= 4
+      Pus Cells    0.2    million/ml    < 1
+    `;
+    const r = parseReportText(text);
+    expect(r.results.volume).toBe(3.2);
+    expect(r.results.pH).toBe(7.8);
+    expect(r.results.spermCount).toBe(45);
+    expect(r.results.motility).toBe(52);
+    expect(r.results.morphology).toBe(5);
+    expect(r.results.wbc).toBe(0.2);
+  });
+
+  it("extracts Thyrocare format", () => {
+    const text = `
+      SEMEN ANALYSIS COMPLETE
+      SEMEN VOLUME                 2.8 mL
+      PH                           7.6
+      SPERM CONCENTRATION          38.0 million/mL
+      TOTAL MOTILITY               48 %
+      MORPHOLOGY (NORMAL FORMS)    6 %
+      LEUKOCYTES                   0.4 million/mL
+    `;
+    const r = parseReportText(text);
+    expect(r.results.volume).toBe(2.8);
+    expect(r.results.pH).toBe(7.6);
+    expect(r.results.spermCount).toBe(38);
+    expect(r.results.motility).toBe(48);
+    expect(r.results.morphology).toBe(6);
+    expect(r.results.wbc).toBe(0.4);
+  });
+
+  it("extracts Metropolis Healthcare format", () => {
+    const text = `
+      Semen Analysis Report
+      Ejaculate Volume : 3.5 mL ( 1.4 - 7.6 )
+      pH : 7.4 ( 7.2 - 8.0 )
+      Sperm Count : 65 million/mL ( >= 16 )
+      Total Motility : 55 % ( >= 42 )
+      Progressive (a+b) : 40 %
+      Morphology : 8 % ( >= 4 )
+      WBC : 0.5 million/mL ( < 1 )
+    `;
+    const r = parseReportText(text);
+    expect(r.results.volume).toBe(3.5);
+    expect(r.results.pH).toBe(7.4);
+    expect(r.results.spermCount).toBe(65);
+    expect(r.results.motility).toBe(55);
+    expect(r.results.morphology).toBe(8);
+    expect(r.results.wbc).toBe(0.5);
+  });
+
+  it("extracts Apollo Diagnostics format with /hpf WBC (surfaces warning)", () => {
+    const text = `
+      Semen Analysis
+      Volume - 2.5 mL
+      pH - 7.5
+      Sperm Concentration - 28 million/mL
+      Total Motility - 44 %
+      Normal Forms (Kruger) - 3 %
+      Pus Cells - 4-5 /hpf
+    `;
+    const r = parseReportText(text);
+    expect(r.results.volume).toBe(2.5);
+    expect(r.results.spermCount).toBe(28);
+    expect(r.results.morphology).toBe(3);
+    expect(r.results.motility).toBe(44);
+    expect(r.results.wbc).toBeUndefined();
+    expect(r.unitWarnings.wbc).toBeDefined();
+    expect(r.unitWarnings.wbc.rawUnit).toBe("/hpf");
+  });
+
+  it("extracts UK / CREATE Fertility-style format", () => {
+    const text = `
+      Semen Analysis
+      Sample Volume           1.9 ml
+      pH value                7.3
+      Sperm concentration     22.5 x10^6/ml
+      Total motility          45 %
+      Progressive motility    32 %
+      Morphology              4 %
+      Leukocytes              0.3 x10^6/ml
+    `;
+    const r = parseReportText(text);
+    expect(r.results.volume).toBe(1.9);
+    expect(r.results.pH).toBe(7.3);
+    expect(r.results.spermCount).toBe(22.5);
+    expect(r.results.motility).toBe(45);
+    expect(r.results.morphology).toBe(4);
+    expect(r.results.wbc).toBe(0.3);
   });
 
   it("extracts Dr Lal PathLabs format correctly", () => {

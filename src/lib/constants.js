@@ -52,13 +52,15 @@ export const DRAFT_KEY = "fm_input_draft";
 
 export const FERTIQ_URL = "https://www.formen.health/products/fertiq-male-fertility-supplement?utm_source=lab-report&utm_medium=tool&utm_campaign=fertiq";
 
-// Verdict config — warm, non-alarming palette.
-// Research: saturated reds trigger stress responses in health contexts.
-// We use emerald → amber → deep orange instead of emerald → amber → red.
+// Summary state config — descriptive, not evaluative.
+// Previous labels ("Looking Strong" / "Act Now") read diagnostic; renamed
+// to plain descriptors so the UI summarises the report rather than
+// pronouncing a verdict. Clinical decisions stay with a doctor.
+// Palette: emerald → amber → deep orange (saturated reds trigger stress).
 export const VERDICT_CONFIG = {
-  ALL_NORMAL: { label: "Looking Strong", bg: "bg-emerald-50", border: "border-emerald-500", text: "text-emerald-700" },
-  ATTENTION: { label: "Room to Improve", bg: "bg-amber-50", border: "border-amber-500", text: "text-amber-700" },
-  ACT_NOW: { label: "Action Plan Ready", bg: "bg-orange-50", border: "border-orange-600", text: "text-orange-700" },
+  ALL_NORMAL: { label: "All values in range", bg: "bg-emerald-50", border: "border-emerald-500", text: "text-emerald-700" },
+  ATTENTION:  { label: "Some values to watch", bg: "bg-amber-50", border: "border-amber-500", text: "text-amber-700" },
+  ACT_NOW:    { label: "Values needing attention", bg: "bg-orange-50", border: "border-orange-600", text: "text-orange-700" },
 };
 
 export const STATUS_CONFIG = {

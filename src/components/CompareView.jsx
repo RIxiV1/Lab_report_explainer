@@ -75,7 +75,8 @@ export default function CompareView({ onBack, onLogoClick, initialCode }) {
       <div className="max-w-[600px] mx-auto px-6 pt-16 pb-24 animate-editorial">
         <h1 className="font-serif text-[clamp(28px,6vw,40px)] font-bold text-gray-900 mb-3 tracking-tight">Compare Two Reports</h1>
         <p className="text-[14px] text-gray-500 mb-10 leading-relaxed">
-          Enter two FM codes to see how your numbers have changed.
+          Enter two FM codes from reports saved on this device.
+          Comparison works only across reports analysed on the same browser.
         </p>
 
         {/* Code Inputs — editorial underline style */}

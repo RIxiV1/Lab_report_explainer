@@ -100,6 +100,11 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
     REQUIRED_FIELDS.forEach((f) => { formData[f.key] = parseFloat(values[f.key]); });
     if (age !== "") formData.age = parseFloat(age);
     if (monthsTrying !== "") formData.ttcMonths = parseFloat(monthsTrying);
+    // If the current values were scanned from a PDF, preserve the motility
+    // subtype so the classifier grades against the correct WHO threshold.
+    if (extractedMetaRef.current.subtypes?.motility) {
+      formData.motilitySubtype = extractedMetaRef.current.subtypes.motility;
+    }
     onSubmit(formData);
   }
 
@@ -110,7 +115,13 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
     onFMCodeLookup(trimmed);
   }
 
-  function handleExtractedData(extractedValues) {
+  // Remembers whether the last scan matched total motility (a+b+c)
+  // or progressive motility (a+b) so the classifier uses the right
+  // threshold (42% vs 30%).
+  const extractedMetaRef = useRef({ subtypes: {} });
+
+  function handleExtractedData(extractedValues, meta = { subtypes: {} }) {
+    extractedMetaRef.current = meta;
     setValues((prev) => ({
       ...prev,
       ...Object.fromEntries(Object.entries(extractedValues).map(([k, v]) => [k, String(v)])),
@@ -118,13 +129,14 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
     setEntryMode("manual");
   }
 
-  function handleAnalyzeNow(extractedValues) {
+  function handleAnalyzeNow(extractedValues, meta = { subtypes: {} }) {
     const formData = {};
     for (const [k, v] of Object.entries(extractedValues)) {
       formData[k] = typeof v === "number" ? v : parseFloat(v);
     }
     if (age !== "") formData.age = parseFloat(age);
     if (monthsTrying !== "") formData.ttcMonths = parseFloat(monthsTrying);
+    if (meta.subtypes?.motility) formData.motilitySubtype = meta.subtypes.motility;
     onSubmit(formData);
   }
 
@@ -214,7 +226,9 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
           </p>
           <div className="flex items-center gap-2 mt-6">
             <div className="w-1.5 h-1.5 bg-wellness-500" style={{ boxShadow: '0 0 6px rgba(139,185,146,0.5)' }} />
-            <span className="text-[11px] text-gray-400 uppercase tracking-wide">Your data stays on your device</span>
+            <span className="text-[11px] text-gray-400 uppercase tracking-wide">
+              Analysed in your browser · stored only on this device
+            </span>
           </div>
         </header>
 
@@ -325,13 +339,16 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
           </div>
         )}
 
-        {/* FM Code — buried under "Transfer data" */}
+        {/* FM Code lookup — for returning to a previous session on the same device */}
         <details className="mt-14 group">
           <summary className="text-[11px] text-neutral-400 uppercase tracking-wide cursor-pointer hover:text-neutral-600 list-none transition-colors">
-            Transfer results from another device
+            Reopen a previous report
           </summary>
           <div className="mt-4 max-w-[360px] animate-editorial">
-            <p className="text-[12px] text-neutral-500 mb-3">Enter the FM Code from your previous session.</p>
+            <p className="text-[12px] text-neutral-500 mb-3">
+              Enter the FM Code from a previous session on this device.
+              Reports are stored locally in this browser — they can't be opened on another device.
+            </p>
             <div className="flex gap-2">
               <input
                 type="text"

@@ -127,6 +127,8 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
   const [steps, setSteps] = useState(STEPS_TEXT);
   const [currentStep, setCurrentStep] = useState(0);
   const [extractedData, setExtractedData] = useState(null);
+  const [unitWarnings, setUnitWarnings] = useState({});
+  const [extractedMeta, setExtractedMeta] = useState({ subtypes: {} });
   const [pastedText, setPastedText] = useState("");
   const fileInputRef = useRef(null);
 
@@ -148,7 +150,9 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
   const finishWithResult = (parsed) => {
     setStatus("success");
     setExtractedData(parsed.results);
-    onExtracted(parsed.results);
+    setUnitWarnings(parsed.unitWarnings || {});
+    setExtractedMeta({ subtypes: parsed.subtypes || {} });
+    onExtracted(parsed.results, { subtypes: parsed.subtypes || {} });
   };
 
   const finishWithError = (msg) => {
@@ -300,6 +304,8 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
     setStatus("idle");
     setMessage("");
     setExtractedData(null);
+    setUnitWarnings({});
+    setExtractedMeta({ subtypes: {} });
     setPastedText("");
     setCurrentStep(0);
     setSteps(STEPS_TEXT);
@@ -345,7 +351,25 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
             })}
           </div>
 
-          <button onClick={() => onAnalyzeNow(extractedData)} className="btn-primary w-full py-4 text-[14px]">
+          {Object.entries(unitWarnings).map(([key, w]) => {
+            const meta = PARAM_META[key];
+            if (!meta) return null;
+            return (
+              <div key={key} role="alert" className="mb-6 p-4 bg-yellow-50 border-l-[3px] border-yellow-500">
+                <p className="text-[12px] font-semibold text-gray-900 mb-1">
+                  Clinical note: {meta.label} reported as {w.value} {w.rawUnit}
+                </p>
+                <p className="text-[12px] text-gray-700 leading-relaxed">
+                  Your lab reported this in <strong>{w.rawUnit}</strong>, which can't be graded against the
+                  {" "}{meta.unit} threshold used here. For pus cells, values of <strong>1 or more per HPF</strong>
+                  {" "}can indicate possible infection (leukocytospermia) and are worth showing to your doctor.
+                  If your lab provided a value in {meta.unit}, please enter it manually.
+                </p>
+              </div>
+            );
+          })}
+
+          <button onClick={() => onAnalyzeNow(extractedData, extractedMeta)} className="btn-primary w-full py-4 text-[14px]">
             Everything look correct? Analyse Now
           </button>
 
@@ -353,7 +377,7 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
             <button onClick={handleReset} className="text-[11px] text-gray-400 hover:text-gray-600 cursor-pointer bg-transparent border-none uppercase tracking-wide font-semibold transition-colors">
               Upload different file
             </button>
-            <button onClick={() => onExtracted(extractedData)} className="text-[11px] text-brand-500 hover:text-brand-700 cursor-pointer bg-transparent border-none uppercase tracking-wide font-semibold transition-colors">
+            <button onClick={() => onExtracted(extractedData, extractedMeta)} className="text-[11px] text-brand-500 hover:text-brand-700 cursor-pointer bg-transparent border-none uppercase tracking-wide font-semibold transition-colors">
               Edit values first
             </button>
           </div>

@@ -23,12 +23,17 @@
 
 import { PARAM_ORDER, PARAM_META, REQUIRED_PARAMS, TMSC_TIERS } from "./constants";
 
+// WHO 2021 thresholds for classifying values. Motility has two variants:
+// - total motility (a+b+c): normal ≥42%, warning 30–41%
+// - progressive motility (a+b): normal ≥30%, warning 20–29%
+// The parser tags which variant was matched so we grade correctly.
 const THRESHOLDS = {
-  spermCount: { normalMin: 16, warningMin: 5 },
-  motility:   { normalMin: 42, warningMin: 30 },
-  morphology: { normalMin: 4,  warningMin: 2 },
-  wbc:        { normalMax: 1.0, warningMax: 2.0 },
-  // volume and pH use dedicated classifiers below (range-based, not simple min/max)
+  spermCount:          { normalMin: 16, warningMin: 5 },
+  motilityTotal:       { normalMin: 42, warningMin: 30 },
+  motilityProgressive: { normalMin: 30, warningMin: 20 },
+  morphology:          { normalMin: 4,  warningMin: 2 },
+  wbc:                 { normalMax: 1.0, warningMax: 2.0 },
+  // volume and pH use dedicated classifiers below (range-based)
 };
 
 function classifySimple(value, normalMin, warningMin) {
@@ -58,10 +63,13 @@ function classifyPH(value) {
   return "CRITICAL";
 }
 
-function getStatus(param, value) {
+function getStatus(param, value, subtype) {
   switch (param) {
     case "spermCount": return classifySimple(value, THRESHOLDS.spermCount.normalMin, THRESHOLDS.spermCount.warningMin);
-    case "motility":   return classifySimple(value, THRESHOLDS.motility.normalMin, THRESHOLDS.motility.warningMin);
+    case "motility": {
+      const t = subtype === "progressive" ? THRESHOLDS.motilityProgressive : THRESHOLDS.motilityTotal;
+      return classifySimple(value, t.normalMin, t.warningMin);
+    }
     case "morphology": return classifySimple(value, THRESHOLDS.morphology.normalMin, THRESHOLDS.morphology.warningMin);
     case "volume":     return classifyVolume(value);
     case "pH":         return classifyPH(value);
@@ -107,7 +115,7 @@ export function calculateTMSC(volume, spermCount, motility) {
 }
 
 export function analyzeReport(inputs) {
-  const { ttcMonths, age } = inputs;
+  const { ttcMonths, age, motilitySubtype } = inputs;
 
   const parameters = {};
   const statuses = {};
@@ -116,10 +124,18 @@ export function analyzeReport(inputs) {
   for (const p of PARAM_ORDER) {
     const value = inputs[p];
     if (!hasValue(value)) continue;
-    const status = getStatus(p, value);
+    const subtype = p === "motility" ? motilitySubtype : undefined;
+    const status = getStatus(p, value, subtype);
     statuses[p] = status;
     const { whoRange, unit } = PARAM_META[p];
-    parameters[p] = { value, status, whoRange, unit };
+    const paramData = { value, status, whoRange, unit };
+    // Surface the subtype so the UI can show "Progressive motility" vs
+    // "Total motility" where relevant.
+    if (p === "motility" && subtype) {
+      paramData.subtype = subtype;
+      paramData.whoRange = subtype === "progressive" ? "≥ 30% (progressive)" : "≥ 42% (total)";
+    }
+    parameters[p] = paramData;
   }
 
   const providedParams = Object.keys(parameters);

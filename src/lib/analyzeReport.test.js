@@ -58,7 +58,7 @@ describe("analyzeReport", () => {
     });
   });
 
-  describe("motility", () => {
+  describe("motility (total — default)", () => {
     it("classifies >=42 as NORMAL", () => {
       expect(analyze({ motility: 42 }).parameters.motility.status).toBe("NORMAL");
     });
@@ -67,6 +67,21 @@ describe("analyzeReport", () => {
     });
     it("classifies <30 as CRITICAL", () => {
       expect(analyze({ motility: 29 }).parameters.motility.status).toBe("CRITICAL");
+    });
+  });
+
+  describe("motility (progressive — threshold 30%)", () => {
+    it("classifies progressive 32% as NORMAL (would have been WARNING under total rule)", () => {
+      // 32 is below 42 (total threshold) but above 30 (progressive threshold)
+      const r = analyze({ motility: 32, motilitySubtype: "progressive" });
+      expect(r.parameters.motility.status).toBe("NORMAL");
+      expect(r.parameters.motility.whoRange).toContain("progressive");
+    });
+    it("classifies progressive 25% as WARNING", () => {
+      expect(analyze({ motility: 25, motilitySubtype: "progressive" }).parameters.motility.status).toBe("WARNING");
+    });
+    it("classifies progressive 15% as CRITICAL", () => {
+      expect(analyze({ motility: 15, motilitySubtype: "progressive" }).parameters.motility.status).toBe("CRITICAL");
     });
   });
 

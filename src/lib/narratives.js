@@ -11,19 +11,24 @@ export const narratives = {
     verdictCard:
       "Great news — all your numbers are in the healthy range. Your sperm count, movement, and shape all look good. You're in a strong position.",
     narrative:
-      "Everything looks solid — good count, healthy movement, and normal shape. These are the three things that matter most for fertility, and yours are all on track. Keep up a healthy routine to maintain these numbers, and share this with your partner so you're both on the same page.",
+      "Everything looks solid — good count, healthy movement, and normal shape. These are the three things that matter most for fertility, and yours are all on track. If you and your partner have been trying for 12 months or more without success (6+ months if she's over 35), a normal standard semen analysis is only part of the picture — this is the moment to look at sperm DNA fragmentation and your partner's workup, not to stop investigating.",
     actions: [
       { timeline: "Immediate", action: "Share these results with your partner and your fertility doctor if you have one", fertiQ: false },
       { timeline: "30 Days", action: "Lock in consistent sleep (7-9 hrs), exercise (150 min/wk), and a Mediterranean-style diet", fertiQ: false },
       { timeline: "90 Days", action: "Retest if conception hasn't occurred to confirm values remain stable", fertiQ: false },
     ],
+    // Shown as a callout when verdict is ALL_NORMAL — addresses the
+    // "normal report but not conceiving" case that a single semen
+    // analysis cannot explain on its own.
+    notConceivingNote:
+      "A standard semen analysis measures count, movement, and shape — but it does NOT measure sperm DNA integrity or many other fertility factors. If you've been trying for a while and this report came back normal, ask your doctor about: (1) a DNA fragmentation test (DFI), (2) a full hormone panel, (3) your partner's fertility workup in parallel. Unexplained infertility is often just un-tested infertility.",
   },
 
   ISOLATED_LOW_COUNT: {
     verdictCard:
       "Your sperm count is a bit low, but movement and shape look healthy. This is very common and often improves with simple lifestyle changes.",
     narrative:
-      "Your sperm are moving well and shaped normally — there just aren't as many as we'd like to see. Think of it as needing more players on the field, while the ones you have are already doing great. Things like too much heat, poor sleep, and missing nutrients are common causes. FertiQ — with CoQ10 and zinc — is designed to help your body make more sperm. A retest in 90 days will show if things are improving.",
+      "Your sperm are moving well and shaped normally — there just aren't as many as we'd like to see. Think of it as needing more players on the field, while the ones you have are already doing great. Things like too much heat, poor sleep, and missing nutrients are common causes. Targeted nutrition (zinc, antioxidants) can support sperm production, and a retest in 90 days will show if things are improving.",
     actions: [
       { timeline: "Immediate", action: "Eliminate laptop-on-lap use, hot tubs, and tight underwear to reduce scrotal heat", fertiQ: false },
       { timeline: "30 Days", action: "Start FertiQ daily and add zinc-rich foods (oysters, pumpkin seeds, lean beef)", fertiQ: true },
@@ -35,7 +40,7 @@ export const narratives = {
     verdictCard:
       "Your sperm movement is below the healthy range, but count and shape are fine. Movement often improves with the right support.",
     narrative:
-      "You're making plenty of healthy-looking sperm — they just need help swimming better. Diet, stress, and lifestyle play a big role here, and small changes can make a real difference. FertiQ — with CoQ10 and zinc — is built to give sperm the energy they need to move well. Talk to your doctor about adding it, and retest in 90 days to see how things change.",
+      "You're making plenty of healthy-looking sperm — they just need help swimming better. Diet, stress, and lifestyle play a big role here, and small changes can make a real difference. Antioxidants and CoQ10 are the nutrients most studied for supporting motility. Talk to your doctor about a 90-day plan and retest to see how things change.",
     actions: [
       { timeline: "Immediate", action: "Cut alcohol to ≤ 4 drinks/week and stop smoking or vaping if applicable", fertiQ: false },
       { timeline: "30 Days", action: "Begin FertiQ daily to deliver CoQ10 and antioxidants that support mitochondrial function in sperm", fertiQ: true },
@@ -61,7 +66,7 @@ export const narratives = {
     verdictCard:
       "Your count and movement are both below the healthy range, but sperm shape looks fine. Two numbers being low needs attention, but this is often fixable.",
     narrative:
-      "Think of it as fewer players on the field and those players running a bit slower — but they're in good shape. When both numbers are low together, they often share one cause (like too much heat, stress, or a hormone gap), which means one plan can fix both. FertiQ — with CoQ10 and zinc — is designed to help with both count and movement. See a fertility doctor to check for common causes, and retest in 90 days.",
+      "Think of it as fewer players on the field and those players running a bit slower — but they're in good shape. When both numbers are low together, they often share one cause (like too much heat, stress, or a hormone gap), which means one plan can fix both. See a fertility doctor to check for common causes. A nutrition + lifestyle plan plus a retest in 90 days is usually the right next step.",
     actions: [
       { timeline: "Immediate", action: "Schedule an appointment with a reproductive urologist for physical exam and hormone panel", fertiQ: false },
       { timeline: "30 Days", action: "Start FertiQ daily, eliminate heat exposure, and begin 30 min moderate exercise 5x/week", fertiQ: true },
@@ -73,7 +78,7 @@ export const narratives = {
     verdictCard:
       "Your count and shape are below the range, but your sperm are swimming well. That's a good sign — and both numbers are often improvable.",
     narrative:
-      "The good news is your sperm are moving strongly, even if there are fewer and their shape scores are lower. Shape is widely misunderstood — even men with no fertility problems score low here. Healthy eating and the right supplements give you the best chance at improving both. FertiQ — with CoQ10 and zinc — supports sperm production and helps protect against the damage that affects shape.",
+      "The good news is your sperm are moving strongly, even if there are fewer and their shape scores are lower. Shape is widely misunderstood — even men with no fertility problems score low here. Healthy eating and targeted nutrition give you the best chance at improving both numbers. A reproductive urologist visit is a sensible early step to rule out treatable causes.",
     actions: [
       { timeline: "Immediate", action: "Book a reproductive urologist visit to check for varicocele and get a hormone panel (FSH, LH, testosterone)", fertiQ: false },
       { timeline: "30 Days", action: "Start FertiQ daily and shift to an antioxidant-rich, Mediterranean-style diet", fertiQ: true },
@@ -85,7 +90,7 @@ export const narratives = {
     verdictCard:
       "Your movement and shape are below the range, but your count is normal. You're producing enough sperm — now we focus on quality, which is often improvable.",
     narrative:
-      "Your body is making a healthy number of sperm — that's a strong starting point. When movement and shape are both low, they usually share one cause (often related to cell damage from stress or toxins), so one plan can help both. FertiQ — with CoQ10 and zinc — delivers the nutrients most shown to improve sperm quality. Combine it with the lifestyle tips below and retest after 90 days.",
+      "Your body is making a healthy number of sperm — that's a strong starting point. When movement and shape are both low, they usually share one cause (often related to cell damage from stress or toxins), so one plan can help both. Antioxidants, diet, and removing heat exposure are the most impactful levers. Combine them with the lifestyle tips below and retest after 90 days.",
     actions: [
       { timeline: "Immediate", action: "Eliminate smoking, vaping, and recreational drugs — these directly impair motility and morphology", fertiQ: false },
       { timeline: "30 Days", action: "Start FertiQ daily and add omega-3-rich foods (salmon, walnuts, flaxseed) to your diet", fertiQ: true },
@@ -97,7 +102,7 @@ export const narratives = {
     verdictCard:
       "Many men with results like these go on to have children — the key is a clear plan. All three main numbers are low, which usually points to one treatable cause, not three separate issues.",
     narrative:
-      "When all three numbers are low, it usually means there's one underlying reason — like a hormone gap, excess body stress, or a fixable physical issue — rather than three different problems. That's actually good news, because one treatment plan can improve all three. A fertility doctor should be your first step to find the root cause. FertiQ — with CoQ10 and zinc — can support your body while you go through the process.",
+      "When all three numbers are low, it usually means there's one underlying reason — like a hormone gap, excess body stress, or a fixable physical issue — rather than three different problems. That's actually good news, because one treatment plan can improve all three. A fertility doctor should be your first step to find the root cause. Nutritional support can run alongside medical workup while you get clarity.",
     actions: [
       { timeline: "Immediate", action: "Book a reproductive urologist appointment — request hormone panel, scrotal ultrasound, and DNA fragmentation test", fertiQ: false },
       { timeline: "30 Days", action: "Start FertiQ daily, overhaul diet toward Mediterranean pattern, and begin regular moderate exercise", fertiQ: true },
@@ -123,7 +128,7 @@ export const narratives = {
     verdictCard:
       "Sperm movement is one of the numbers that responds best to treatment and lifestyle changes. A specialist can find the cause, and real improvement is very possible within 90 days.",
     narrative:
-      "Very low movement can come from energy problems in the sperm, physical issues, or cell damage — all of which a fertility doctor can look into. The good news is that movement is one of the numbers that improves most with the right changes. FertiQ — with CoQ10 and zinc — directly supports the energy system that powers sperm movement. See a specialist first, then build a 90-day plan together.",
+      "Very low movement can come from energy problems in the sperm, physical issues, or cell damage — all of which a fertility doctor can look into. The good news is that movement is one of the numbers that improves most with the right changes. CoQ10 and antioxidants directly support the energy system that powers sperm movement. See a specialist first, then build a 90-day plan together.",
     actions: [
       { timeline: "Immediate", action: "Book a reproductive urologist visit — ask about anti-sperm antibody testing and advanced motility assessment", fertiQ: false },
       { timeline: "30 Days", action: "Start FertiQ daily for CoQ10-driven mitochondrial support; stop all tobacco and alcohol", fertiQ: true },
@@ -135,7 +140,7 @@ export const narratives = {
     verdictCard:
       "Sperm shape is the most misread number on a semen report. Even healthy, fertile men often score in the low single digits. A low score alone doesn't predict your chances, and it responds well to diet and lifestyle changes.",
     narrative:
-      "The shape scoring system is strict on purpose — even healthy men regularly score low. A very low number is worth looking into, but on its own it doesn't tell us much about your chances. The best thing you can do is eat well, avoid toxins, and consider supplements, then retest after 90 days. FertiQ — with CoQ10 and zinc — provides the nutrients most studied for improving sperm shape.",
+      "The shape scoring system is strict on purpose — even healthy men regularly score low. A very low number is worth looking into, but on its own it doesn't tell us much about your chances. The best thing you can do is eat well, avoid toxins, and consider an antioxidant-focused nutrition plan, then retest after 90 days.",
     actions: [
       { timeline: "Immediate", action: "Consult a reproductive urologist to rule out contributing factors like varicocele or infection", fertiQ: false },
       { timeline: "30 Days", action: "Start FertiQ daily and adopt a strict antioxidant-rich diet — berries, leafy greens, nuts, fish", fertiQ: true },
@@ -207,7 +212,7 @@ export const narratives = {
     verdictCard:
       "Several of your numbers are just at or slightly below the line. None are critically low, which is reassuring — but small improvements across the board can make a big difference.",
     narrative:
-      "When several numbers are near the borderline, you don't need a big change in any one area — just a small push in each. This is actually one of the easiest profiles to improve with lifestyle changes. FertiQ — with CoQ10 and zinc — covers the nutritional basics that support broad improvement. Think of it as fine-tuning, not a major overhaul.",
+      "When several numbers are near the borderline, you don't need a big change in any one area — just a small push in each. This is actually one of the easiest profiles to improve with lifestyle changes. Broad-spectrum nutrition covers most of the nutritional basics that support improvement. Think of it as fine-tuning, not a major overhaul.",
     actions: [
       { timeline: "Immediate", action: "Audit your sleep, exercise, heat exposure, and alcohol intake — small fixes across all four add up", fertiQ: false },
       { timeline: "30 Days", action: "Start FertiQ daily and transition to a whole-foods, antioxidant-rich diet", fertiQ: true },
@@ -231,7 +236,7 @@ export const narratives = {
     verdictCard:
       "Your age is worth noting, though male fertility doesn't drop as sharply as often discussed. Taking action now can make a real difference.",
     narrative:
-      "After 40, sperm DNA quality can gradually decline and hormone levels may shift. This doesn't mean you can't improve — it means the changes you make now are even more valuable. Ask your doctor about a DNA fragmentation test for a fuller picture. FertiQ — with CoQ10 and zinc — includes the nutrients most shown to protect against age-related sperm damage.",
+      "After 40, sperm DNA quality can gradually decline and hormone levels may shift. This doesn't mean you can't improve — it means the changes you make now are even more valuable. Ask your doctor about a DNA fragmentation test for a fuller picture. CoQ10 and antioxidants are the nutrients most studied for protecting against age-related sperm damage.",
     actions: [
       { timeline: "Immediate", action: "Request a sperm DNA fragmentation test from your reproductive urologist for a fuller picture of sperm health", fertiQ: false },
       { timeline: "30 Days", action: "Start FertiQ daily — CoQ10 and antioxidant coverage become more important as age-related oxidative stress increases", fertiQ: true },
@@ -243,7 +248,7 @@ export const narratives = {
     verdictCard:
       "Your results don't fit a common pattern, but that's okay — a specialist can help make sense of them.",
     narrative:
-      "Sometimes results don't fit neatly into one category, and that's normal. The best next step is to have a fertility doctor review your full report. In the meantime, the lifestyle tips below support sperm health no matter what your numbers look like. FertiQ — with CoQ10 and zinc — provides broad nutritional support while you get personalised medical advice.",
+      "Sometimes results don't fit neatly into one category, and that's normal. The best next step is to have a fertility doctor review your full report. In the meantime, the lifestyle tips below support sperm health no matter what your numbers look like.",
     actions: [
       { timeline: "Immediate", action: "Book a consultation with a reproductive urologist to review these results in person", fertiQ: false },
       { timeline: "30 Days", action: "Start FertiQ daily for broad-spectrum fertility nutritional support while awaiting specialist input", fertiQ: true },

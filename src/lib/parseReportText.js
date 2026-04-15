@@ -52,16 +52,17 @@ const PARAMS = [
   },
   {
     key: "motility",
-    // Order matters: WHO canonical is "total motility" (a+b+c).
-    // "Total motile" phrasing is common on Indian labs. Only fall back to
-    // "all progressive" (a+b) if neither total variant was found, since
-    // the numeric thresholds are different (42% vs 30%).
+    // Order matters: WHO canonical is "total motility" (a+b+c), threshold ≥42%.
+    // "Total motile" phrasing is common on Indian labs. Fall back to
+    // "all progressive" (a+b), threshold ≥30% — different threshold,
+    // so we tag which type was matched and the analyzer grades accordingly.
     keywords: [
-      "total motility",
-      "total motile",
-      "motility total",
-      "all progressive",
-      "motility",
+      { kw: "total motility",   subtype: "total" },
+      { kw: "total motile",     subtype: "total" },
+      { kw: "motility total",   subtype: "total" },
+      { kw: "all progressive",  subtype: "progressive" },
+      { kw: "progressive motility", subtype: "progressive" },
+      { kw: "motility",         subtype: "total" }, // bare "motility" defaults to total
     ],
     guard: (matchedText) => !/immotile|non[-\s]*progressive/.test(matchedText.toLowerCase()),
   },
@@ -101,10 +102,13 @@ const PARAMS = [
       "white blood cells",
     ],
     // Indian labs commonly report pus cells as "/hpf" (per high-power field).
-    // That unit is NOT comparable to million/mL thresholds used here.
-    // If /hpf is present in the matched region, skip extraction so the
-    // user can enter the correctly-unit'd value manually.
-    rejectIfNear: /\/\s*hpf|per\s*hpf|high[-\s]*power/i,
+    // /hpf is NOT arithmetically convertible to million/mL. But clinically,
+    // ≥1 pus cell/hpf suggests possible leukocytospermia (infection) — we
+    // must surface this rather than silently dropping it. The extracted
+    // number goes into `unitWarnings` instead of `results` so the UI can
+    // show a flagged finding without feeding a mis-unit'd value into the
+    // rule engine.
+    flagIfNear: /\/\s*hpf|per\s*hpf|high[-\s]*power/i,
   },
 ];
 
@@ -113,10 +117,13 @@ const PARAMS = [
 const REJECT_LOOKAHEAD = 40;
 
 function findValue(text, param) {
-  const { key, keywords, guard, fallbackRegex, rejectIfNear } = param;
+  const { key, keywords, guard, fallbackRegex, flagIfNear } = param;
   const bounds = SANITY[key];
 
-  for (const kw of keywords) {
+  for (const entry of keywords) {
+    // keywords can be strings (plain) or { kw, subtype } objects (for tagged matches)
+    const kw = typeof entry === "string" ? entry : entry.kw;
+    const subtype = typeof entry === "string" ? undefined : entry.subtype;
     const regex = new RegExp(`\\b${fuzzy(kw)}${GAP}([\\d.]+)`, "i");
     const match = text.match(regex);
     if (match) {
@@ -124,11 +131,13 @@ function findValue(text, param) {
       const value = parseFloat(match[1]);
       if (isNaN(value)) continue;
       if (bounds && (value < bounds.min || value > bounds.max)) continue;
-      if (rejectIfNear) {
+      if (flagIfNear) {
         const after = text.slice(match.index + match[0].length, match.index + match[0].length + REJECT_LOOKAHEAD);
-        if (rejectIfNear.test(after)) continue;
+        if (flagIfNear.test(after)) {
+          return { value, matched: match[0].trim(), unitMismatch: true, rawUnit: "/hpf", subtype };
+        }
       }
-      return { value, matched: match[0].trim() };
+      return { value, matched: match[0].trim(), subtype };
     }
   }
 
@@ -150,14 +159,26 @@ export function parseReportText(text) {
   const normalized = normalize(text);
   const results = {};
   const matched = {};
+  const subtypes = {}; // e.g. { motility: "total" | "progressive" }
+  const unitWarnings = {};
 
   for (const param of PARAMS) {
     const found = findValue(normalized, param);
-    if (found) {
+    if (!found) continue;
+    matched[param.key] = found.matched;
+    if (found.subtype) subtypes[param.key] = found.subtype;
+    if (found.unitMismatch) {
+      unitWarnings[param.key] = { value: found.value, rawUnit: found.rawUnit };
+    } else {
       results[param.key] = found.value;
-      matched[param.key] = found.matched;
     }
   }
 
-  return { results, matched, foundCount: Object.keys(results).length };
+  return {
+    results,
+    matched,
+    subtypes,
+    unitWarnings,
+    foundCount: Object.keys(results).length,
+  };
 }

@@ -135,8 +135,13 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
         }} />
 
         <div className="max-w-[800px] mx-auto px-6 pt-16 pb-16 relative z-10">
-          {/* Row 1: Verdict + counts */}
-          <div className="flex items-center gap-4 flex-wrap mb-6">
+          {/* Eyebrow — frames the block as a summary, not a verdict */}
+          <p className="text-[11px] uppercase tracking-[0.2em] text-white/40 mb-3 font-semibold">
+            Summary of your report
+          </p>
+
+          {/* Row 1: Summary state + counts */}
+          <div className="flex items-center gap-4 flex-wrap mb-4">
             <h1 className="font-serif text-[clamp(36px,8vw,52px)] leading-none font-bold tracking-tight">
               {verdictCfg.label}
             </h1>
@@ -153,6 +158,12 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
               )}
             </div>
           </div>
+
+          {/* Clinical sign-off — explicit that this is not a diagnosis */}
+          <p className="text-[11px] text-white/40 mb-6 leading-relaxed max-w-[560px]">
+            This is a plain-English summary of your report against WHO 2021 reference ranges.
+            It is not a medical diagnosis. For clinical decisions, please consult a qualified doctor.
+          </p>
 
           {/* Row 2: Short narrative (2 sentences only) */}
           {narrativeShort && (
@@ -219,6 +230,20 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
             })}
           </div>
         </section>
+
+        {/* ── "Normal but not conceiving" callout ── */}
+        {snippet?.notConceivingNote && (
+          <section className="mb-14">
+            <div className="p-6 border-l-[3px] border-brand-500 bg-brand-50/60">
+              <p className="text-[11px] uppercase tracking-wider font-bold text-brand-800 mb-2">
+                Still not conceiving?
+              </p>
+              <p className="text-[14px] text-gray-800 leading-relaxed">
+                {snippet.notConceivingNote}
+              </p>
+            </div>
+          </section>
+        )}
 
         {/* ── Doctor CTA ── */}
         <section className="mb-14">
