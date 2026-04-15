@@ -48,10 +48,12 @@ function classifyInverted(value, normalMax, warningMax) {
   return "CRITICAL";
 }
 
-// Volume: WHO 2021 defines only a lower limit.
+// Volume: WHO 2021 defines only a lower reference limit (1.4 mL). There
+// is no clinically defined upper bound, so we do NOT flag high volume
+// as pathological — just the low side.
 function classifyVolume(value) {
-  if (value >= 1.4 && value <= 7.6) return "NORMAL";
-  if ((value >= 0.5 && value < 1.4) || (value > 7.6 && value <= 10)) return "WARNING";
+  if (value >= 1.4) return "NORMAL";
+  if (value >= 0.5) return "WARNING";
   return "CRITICAL";
 }
 
@@ -177,8 +179,9 @@ export function analyzeReport(inputs) {
           snippetKey = inputs.pH < 7.2 ? "ABNORMAL_PH_LOW" : "ABNORMAL_PH_HIGH";
           primaryIssue = "Abnormal pH level";
         } else if (statuses.volume === "CRITICAL") {
-          snippetKey = inputs.volume < 1.4 ? "LOW_VOLUME" : "HIGH_VOLUME";
-          primaryIssue = "Critically abnormal volume";
+          // Only low volume is treated as pathological (WHO 2021).
+          snippetKey = "LOW_VOLUME";
+          primaryIssue = "Critically low volume";
         } else {
           snippetKey = "FALLBACK";
           primaryIssue = "Multiple parameters need attention";

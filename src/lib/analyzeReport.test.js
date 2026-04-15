@@ -97,18 +97,19 @@ describe("analyzeReport", () => {
     });
   });
 
-  describe("volume", () => {
-    it("classifies 1.4-7.6 as NORMAL", () => {
+  describe("volume (WHO 2021 — no upper bound)", () => {
+    it("classifies >=1.4 as NORMAL including values above 7.6", () => {
       expect(analyze({ volume: 1.4 }).parameters.volume.status).toBe("NORMAL");
       expect(analyze({ volume: 7.6 }).parameters.volume.status).toBe("NORMAL");
+      expect(analyze({ volume: 9 }).parameters.volume.status).toBe("NORMAL");
+      expect(analyze({ volume: 12 }).parameters.volume.status).toBe("NORMAL");
     });
-    it("classifies 0.5-1.3 and 7.7-10 as WARNING", () => {
+    it("classifies 0.5-1.39 as WARNING (low side)", () => {
       expect(analyze({ volume: 0.5 }).parameters.volume.status).toBe("WARNING");
-      expect(analyze({ volume: 9 }).parameters.volume.status).toBe("WARNING");
+      expect(analyze({ volume: 1.3 }).parameters.volume.status).toBe("WARNING");
     });
-    it("classifies <0.5 and >10 as CRITICAL", () => {
+    it("classifies <0.5 as CRITICAL (low side)", () => {
       expect(analyze({ volume: 0.3 }).parameters.volume.status).toBe("CRITICAL");
-      expect(analyze({ volume: 12 }).parameters.volume.status).toBe("CRITICAL");
     });
   });
 
@@ -164,9 +165,10 @@ describe("analyzeReport", () => {
     expect(r.snippetKey).toBe("LOW_VOLUME");
   });
 
-  it("selects HIGH_VOLUME for critically high volume", () => {
+  it("does not flag high volume as pathological (WHO 2021 has no upper bound)", () => {
     const r = analyze({ volume: 15 });
-    expect(r.snippetKey).toBe("HIGH_VOLUME");
+    expect(r.parameters.volume.status).toBe("NORMAL");
+    expect(r.snippetKey).not.toBe("HIGH_VOLUME");
   });
 
   it("selects ELEVATED_WBC for critical wbc", () => {

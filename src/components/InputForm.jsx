@@ -102,8 +102,8 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
     if (monthsTrying !== "") formData.ttcMonths = parseFloat(monthsTrying);
     // If the current values were scanned from a PDF, preserve the motility
     // subtype so the classifier grades against the correct WHO threshold.
-    if (extractedMetaRef.current.subtypes?.motility) {
-      formData.motilitySubtype = extractedMetaRef.current.subtypes.motility;
+    if (extractedMeta.subtypes?.motility) {
+      formData.motilitySubtype = extractedMeta.subtypes.motility;
     }
     onSubmit(formData);
   }
@@ -115,13 +115,15 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
     onFMCodeLookup(trimmed);
   }
 
-  // Remembers whether the last scan matched total motility (a+b+c)
-  // or progressive motility (a+b) so the classifier uses the right
-  // threshold (42% vs 30%).
-  const extractedMetaRef = useRef({ subtypes: {} });
+  // Remembers scan metadata across mode switches:
+  // - subtypes: which motility variant was matched (total vs progressive)
+  //   so the classifier uses the right WHO threshold (42% vs 30%).
+  // - unitWarnings: per-field warnings (e.g. WBC reported as /hpf) shown
+  //   as hints under the relevant input.
+  const [extractedMeta, setExtractedMeta] = useState({ subtypes: {}, unitWarnings: {} });
 
-  function handleExtractedData(extractedValues, meta = { subtypes: {} }) {
-    extractedMetaRef.current = meta;
+  function handleExtractedData(extractedValues, meta = { subtypes: {}, unitWarnings: {} }) {
+    setExtractedMeta(meta);
     setValues((prev) => ({
       ...prev,
       ...Object.fromEntries(Object.entries(extractedValues).map(([k, v]) => [k, String(v)])),
@@ -129,7 +131,8 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
     setEntryMode("manual");
   }
 
-  function handleAnalyzeNow(extractedValues, meta = { subtypes: {} }) {
+  function handleAnalyzeNow(extractedValues, meta = { subtypes: {}, unitWarnings: {} }) {
+    setExtractedMeta(meta);
     const formData = {};
     for (const [k, v] of Object.entries(extractedValues)) {
       formData[k] = typeof v === "number" ? v : parseFloat(v);
@@ -142,6 +145,7 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
 
   function renderField(field) {
     const hasError = touched[field.key] && errors[field.key];
+    const unitWarning = extractedMeta.unitWarnings?.[field.key];
     return (
       <div key={field.key} className="bg-white p-5 transition-colors hover:bg-[#FAFBFD]">
         <div className="flex items-center gap-2 mb-3">
@@ -200,6 +204,17 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
         >
           {hasError ? errors[field.key] : field.hint}
         </p>
+
+        {unitWarning && !hasError && (
+          <div role="note" className="mt-2 p-3 bg-yellow-50 border-l-[3px] border-yellow-500">
+            <p className="text-[11px] text-gray-800 leading-relaxed">
+              <strong>Note:</strong> Your report listed this as <strong>{unitWarning.value} {unitWarning.rawUnit}</strong>,
+              which isn't comparable to the {field.unit} threshold used here.
+              Please ask your doctor or lab for the value in {field.unit} before entering it.
+              For pus cells, even 1 per HPF can indicate possible infection.
+            </p>
+          </div>
+        )}
         {field.extraNote && !hasError && (
           <p className="text-[11px] text-gray-400 mt-0.5 italic">{field.extraNote}</p>
         )}

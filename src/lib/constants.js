@@ -35,14 +35,29 @@ export const REQUIRED_FIELDS = PARAM_ORDER.map((key) => ({
   ...FIELD_CONFIG[key],
 }));
 
-// ── TMSC (Total Motile Sperm Count) clinical tiers ─────────────────
+// ── TMSC (Total Motile Sperm Count) reference tiers ────────────────
 // TMSC = Volume × Concentration × (Total Motility / 100)
-// Thresholds are widely used in reproductive medicine to guide
-// treatment pathway decisions.
+//
+// These thresholds are widely used in reproductive medicine as reference
+// ranges. We deliberately do NOT name specific treatment pathways (IUI,
+// IVF, ICSI) — recommending a specific clinical course is a diagnostic
+// function that belongs with a qualified doctor, not this tool.
 export const TMSC_TIERS = {
-  NATURAL: { min: 20, label: "Natural conception likely", description: "TMSC of 20 million or higher suggests natural conception is likely with time." },
-  IUI: { min: 5, label: "IUI may be recommended", description: "TMSC between 5–20 million is the range where intrauterine insemination (IUI) is often successful." },
-  IVF: { min: 0, label: "IVF/ICSI territory", description: "TMSC below 5 million typically indicates assisted reproductive technology (IVF or ICSI) offers the best chance." },
+  NATURAL: {
+    min: 20,
+    label: "Supports natural conception",
+    description: "A TMSC of 20 million or higher is generally associated with higher chances of natural conception given enough time.",
+  },
+  IUI: {
+    min: 5,
+    label: "Discussion with a specialist recommended",
+    description: "A TMSC in the 5–20 million range is worth reviewing with a fertility specialist to understand your options.",
+  },
+  IVF: {
+    min: 0,
+    label: "Specialist consultation strongly recommended",
+    description: "A TMSC below 5 million is a meaningful clinical signal. Prompt consultation with a reproductive specialist will give you the clearest picture of your options.",
+  },
 };
 
 

@@ -12,15 +12,23 @@ const CTX_LINES = {
   wbc:        { NORMAL: "No infection signs.", WARNING: "Mild — usually manageable.", CRITICAL: "Treatable — talk to your doctor." },
 };
 
-function buildWhatsAppText(result, fmCode, verdictLabel) {
-  const params = PARAM_ORDER.map((key) => {
-    const p = result.parameters[key];
-    if (!p) return null;
-    const meta = PARAM_META[key];
-    return `${meta.label}: ${p.value}${meta.unit ? " " + meta.unit : ""}`;
-  }).filter(Boolean).join("\n");
-  const tmscLine = result.tmsc ? `\nTMSC: ${result.tmsc.value}M — ${result.tmsc.tierLabel}` : "";
-  return encodeURIComponent(`My Semen Analysis — ${verdictLabel}${tmscLine}\n\n${params}\n\nFM Code: ${fmCode}\nhttps://formen.health/pages/lab-report-explainer`);
+// Share payload deliberately omits raw numeric values.
+// - Privacy: URL query strings get logged, previewed, and cached — raw
+//   lab metrics don't belong there.
+// - Funnel: recipient must visit the platform to view the full report,
+//   which introduces a new user to the brand instead of ending the
+//   interaction inside WhatsApp.
+function buildWhatsAppText(fmCode, verdictLabel) {
+  const lines = [
+    "I just got my semen analysis explained by ForMen Health.",
+    "",
+    `Summary: ${verdictLabel}`,
+    `My FM code: ${fmCode}`,
+    "",
+    "Open it here to see the full breakdown:",
+    "https://formen.health/pages/lab-report-explainer",
+  ];
+  return encodeURIComponent(lines.join("\n"));
 }
 
 const DOCTOR_URL = "https://www.formen.health/pages/book-doctor-appointment";
@@ -105,7 +113,7 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
   }
 
   function handleWhatsApp() {
-    window.open(`https://wa.me/?text=${buildWhatsAppText(result, fmCode, verdictCfg.label)}`, "_blank", "noopener,noreferrer");
+    window.open(`https://wa.me/?text=${buildWhatsAppText(fmCode, verdictCfg.label)}`, "_blank", "noopener,noreferrer");
   }
 
   const actionGroups = {};
@@ -286,11 +294,6 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
                             </button>
                             <div className="flex-1">
                               <p className={`text-[13px] leading-relaxed text-gray-800 ${checked ? "line-through" : ""}`}>{action.action}</p>
-                              {action.fertiQ && (
-                                <a href={FERTIQ_URL} target="_blank" rel="noopener noreferrer" className="no-print inline-block mt-1 text-[10px] text-brand-600 font-semibold uppercase tracking-wide hover:text-brand-800 transition-colors">
-                                  Explore FertiQ &rarr;
-                                </a>
-                              )}
                             </div>
                           </div>
                         );
@@ -299,6 +302,26 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
                   </div>
                 );
               })}
+            </div>
+          </section>
+        )}
+
+        {/* ── Support Your Journey — commerce card, deliberately separated
+             from the clinical action rail to preserve medical authority ── */}
+        {snippet?.actions?.some((a) => a.fertiQ) && (
+          <section className="mb-14 no-print">
+            <div className="p-7 flex flex-col md:flex-row items-start md:items-center justify-between gap-5" style={{ background: "linear-gradient(135deg, #FAF7F1, #F4EDE0)", border: '1px solid rgba(218,198,168,0.4)' }}>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-2">Support your journey</p>
+                <p className="font-serif text-[20px] font-bold text-gray-900 mb-1">FertiQ by ForMen Health</p>
+                <p className="text-[13px] text-gray-600 max-w-[420px] leading-relaxed">
+                  A daily fertility supplement formulated with CoQ10, zinc, and antioxidants.
+                  Built to complement the lifestyle steps above — not replace medical care.
+                </p>
+              </div>
+              <a href={FERTIQ_URL} target="_blank" rel="noopener noreferrer" className="btn-primary shrink-0">
+                Learn about FertiQ
+              </a>
             </div>
           </section>
         )}

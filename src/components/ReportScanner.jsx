@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { parseReportText } from "../lib/parseReportText";
-import { PARAM_META } from "../lib/constants";
+import { PARAM_META, PARAM_ORDER } from "../lib/constants";
+import { logParseAttempt } from "../lib/telemetry";
 
 const STEPS_TEXT = [
   "Reading document locally...",
@@ -131,6 +132,10 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
   const [extractedMeta, setExtractedMeta] = useState({ subtypes: {} });
   const [pastedText, setPastedText] = useState("");
   const fileInputRef = useRef(null);
+  const startedAtRef = useRef(0);
+
+  const durationSinceStart = () =>
+    startedAtRef.current ? Date.now() - startedAtRef.current : null;
 
   useEffect(() => {
     if (status !== "processing") return;
@@ -151,8 +156,12 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
     setStatus("success");
     setExtractedData(parsed.results);
     setUnitWarnings(parsed.unitWarnings || {});
-    setExtractedMeta({ subtypes: parsed.subtypes || {} });
-    onExtracted(parsed.results, { subtypes: parsed.subtypes || {} });
+    const meta = {
+      subtypes: parsed.subtypes || {},
+      unitWarnings: parsed.unitWarnings || {},
+    };
+    setExtractedMeta(meta);
+    onExtracted(parsed.results, meta);
   };
 
   const finishWithError = (msg) => {
@@ -166,7 +175,26 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
     else finishWithError("Could not find semen analysis metrics. Try pasting the report text or use manual entry.");
   };
 
-  const runOCROnPdf = async (pdf) => {
+  // Wraps finishWithText and records a telemetry entry for paste-sourced
+  // text. PDF and OCR paths log their own entries directly.
+  const finishPastedText = (text) => {
+    const parsed = tryParse(text);
+    logParseAttempt({
+      source: "paste",
+      strategy: "paste",
+      outcome: parsed ? "success" : "paste-no-matches",
+      foundFields: parsed ? Object.keys(parsed.results) : [],
+      missingFields: parsed ? PARAM_ORDER.filter((k) => !(k in parsed.results)) : PARAM_ORDER,
+      unitWarnings: parsed ? Object.keys(parsed.unitWarnings || {}) : [],
+      subtypes: parsed?.subtypes || {},
+      pastedLength: text.length,
+      durationMs: durationSinceStart(),
+    });
+    if (parsed) finishWithResult(parsed);
+    else finishWithError("Could not find semen analysis metrics. Try pasting the report text or use manual entry.");
+  };
+
+  const runOCROnPdf = async (pdf, meta = {}) => {
     setSteps(STEPS_OCR);
     setCurrentStep(2);
 
@@ -185,9 +213,34 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
 
       await worker.terminate();
       setCurrentStep(4);
-      finishWithText(fullText);
+
+      const parsed = tryParse(fullText);
+      logParseAttempt({
+        source: "pdf-ocr",
+        strategy: "ocr",
+        outcome: parsed ? "success" : "ocr-no-matches",
+        foundFields: parsed ? Object.keys(parsed.results) : [],
+        missingFields: parsed ? PARAM_ORDER.filter((k) => !(k in parsed.results)) : PARAM_ORDER,
+        unitWarnings: parsed ? Object.keys(parsed.unitWarnings || {}) : [],
+        subtypes: parsed?.subtypes || {},
+        pagesScanned: pagesToScan,
+        fileSize: meta.fileSize,
+        pageCount: meta.pageCount,
+        ocrTextLength: fullText.length,
+        durationMs: durationSinceStart(),
+      });
+      if (parsed) finishWithResult(parsed);
+      else finishWithError("Could not find semen analysis metrics. Try pasting the report text or use manual entry.");
     } catch (err) {
       console.error("PDF OCR failed:", err);
+      logParseAttempt({
+        source: "pdf-ocr",
+        outcome: "error",
+        errorMessage: String(err?.message || err),
+        fileSize: meta.fileSize,
+        pageCount: meta.pageCount,
+        durationMs: durationSinceStart(),
+      });
       finishWithError("Could not read this PDF. Try uploading a clearer image or pasting the report text.");
     }
   };
@@ -196,11 +249,16 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
     setStatus("processing");
     setSteps(STEPS_TEXT);
     setCurrentStep(0);
+    startedAtRef.current = Date.now();
+
+    const fileSize = file.size;
+    let pageCount = null;
 
     try {
       const pdfjsLib = await loadPdfjs();
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      pageCount = pdf.numPages;
 
       setCurrentStep(1);
 
@@ -217,36 +275,84 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
 
       // If the text layer is basically empty, skip straight to OCR
       if (totalCharCount < MIN_USABLE_TEXT_LENGTH) {
-        await runOCROnPdf(pdf);
+        logParseAttempt({
+          source: "pdf",
+          strategy: null,
+          outcome: "text-layer-empty",
+          fileSize,
+          pageCount,
+          totalCharCount,
+          durationMs: durationSinceStart(),
+          note: "falling through to OCR",
+        });
+        await runOCROnPdf(pdf, { fileSize, pageCount });
         return;
       }
 
-      // Try each strategy; pick the one with the most parser matches
-      const candidates = [
-        pageContents.map((tc) => reconstructByPosition(tc)).join("\n"),
-        pageContents.map((tc) => reconstructByEOL(tc)).join("\n"),
-        pageContents.map((tc) => reconstructByStream(tc)).join("\n"),
+      // Try each strategy; pick the one with the most parser matches.
+      // Track which strategy won for telemetry.
+      const strategies = [
+        { name: "position", text: pageContents.map((tc) => reconstructByPosition(tc)).join("\n") },
+        { name: "eol",      text: pageContents.map((tc) => reconstructByEOL(tc)).join("\n") },
+        { name: "stream",   text: pageContents.map((tc) => reconstructByStream(tc)).join("\n") },
       ];
 
       let best = null;
-      for (const text of candidates) {
-        const parsed = tryParse(text);
+      let bestStrategy = null;
+      const strategyScores = {};
+      for (const s of strategies) {
+        const parsed = tryParse(s.text);
+        strategyScores[s.name] = parsed?.foundCount ?? 0;
         if (parsed && (!best || parsed.foundCount > best.foundCount)) {
           best = parsed;
+          bestStrategy = s.name;
         }
       }
 
       if (best) {
         setCurrentStep(2);
+        logParseAttempt({
+          source: "pdf",
+          strategy: bestStrategy,
+          outcome: "success",
+          foundFields: Object.keys(best.results),
+          missingFields: PARAM_ORDER.filter((k) => !(k in best.results)),
+          unitWarnings: Object.keys(best.unitWarnings || {}),
+          subtypes: best.subtypes || {},
+          strategyScores,
+          fileSize,
+          pageCount,
+          totalCharCount,
+          durationMs: durationSinceStart(),
+        });
         finishWithResult(best);
         return;
       }
 
       // Text layer exists but nothing parses — likely a rendered-image
       // PDF with junk text annotations. Fall back to OCR.
-      await runOCROnPdf(pdf);
+      logParseAttempt({
+        source: "pdf",
+        strategy: null,
+        outcome: "text-parsed-no-matches",
+        strategyScores,
+        fileSize,
+        pageCount,
+        totalCharCount,
+        durationMs: durationSinceStart(),
+        note: "falling through to OCR",
+      });
+      await runOCROnPdf(pdf, { fileSize, pageCount });
     } catch (err) {
       console.error("PDF extraction failed:", err);
+      logParseAttempt({
+        source: "pdf",
+        outcome: "error",
+        errorMessage: String(err?.message || err),
+        fileSize,
+        pageCount,
+        durationMs: durationSinceStart(),
+      });
       finishWithError("Could not read this PDF. Try uploading an image or pasting the report text instead.");
     }
   };
@@ -255,6 +361,9 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
     setStatus("processing");
     setSteps(STEPS_IMAGE);
     setCurrentStep(0);
+    startedAtRef.current = Date.now();
+
+    const fileSize = file.size;
 
     try {
       const createWorker = await loadTesseract();
@@ -263,11 +372,32 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
       const { data } = await worker.recognize(file);
       await worker.terminate();
       setCurrentStep(2);
-      finishWithText(data.text);
+
+      const parsed = tryParse(data.text);
+      logParseAttempt({
+        source: "image-ocr",
+        strategy: "ocr",
+        outcome: parsed ? "success" : "ocr-no-matches",
+        foundFields: parsed ? Object.keys(parsed.results) : [],
+        missingFields: parsed ? PARAM_ORDER.filter((k) => !(k in parsed.results)) : PARAM_ORDER,
+        unitWarnings: parsed ? Object.keys(parsed.unitWarnings || {}) : [],
+        subtypes: parsed?.subtypes || {},
+        fileSize,
+        ocrTextLength: data.text.length,
+        durationMs: durationSinceStart(),
+      });
+      if (parsed) finishWithResult(parsed);
+      else finishWithError("Could not find semen analysis metrics. Try pasting the report text or use manual entry.");
     } catch (err) {
       console.error("Image OCR failed:", err);
-      setStatus("error");
-      setMessage("Failed to read image. Try pasting text instead.");
+      logParseAttempt({
+        source: "image-ocr",
+        outcome: "error",
+        errorMessage: String(err?.message || err),
+        fileSize,
+        durationMs: durationSinceStart(),
+      });
+      finishWithError("Failed to read image. Try pasting text instead.");
     }
   };
 
@@ -296,7 +426,8 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
       setStatus("processing");
       setSteps(STEPS_TEXT);
       setCurrentStep(0);
-      setTimeout(() => finishWithText(text), PASTE_DELAY_MS);
+      startedAtRef.current = Date.now();
+      setTimeout(() => finishPastedText(text), PASTE_DELAY_MS);
     }
   };
 
@@ -318,7 +449,8 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
     setStatus("processing");
     setSteps(STEPS_TEXT);
     setCurrentStep(0);
-    setTimeout(() => finishWithText(text), PASTE_DELAY_MS);
+    startedAtRef.current = Date.now();
+    setTimeout(() => finishPastedText(text), PASTE_DELAY_MS);
   };
 
   // ── SUCCESS STATE ──
