@@ -28,12 +28,16 @@ To allow users to return to their results without account creation, the system u
 The project is built as a high-performance, single-page application with a focus on fluid, responsive design.
 
 - **Frontend**: React 18+ powered by Vite.
+- **OCR & Document Parsing**: 
+  - **Tesseract.js**: For client-side optical character recognition of report images.
+  - **PDF.js**: For extraction of text layers from PDF documents.
 - **Layout**: A custom fluid design system that utilizes CSS Grid (auto-fill) and fluid typography (clamp functions) to ensure native-like behavior on mobile and desktop without extensive media queries.
-- **State Management**: React hooks for simulated analytical processing and local persistence via custom hooks.
+- **State Management**: React hooks for local persistence and coordinated interpretation processing.
 - **Rule Engine**: Standardized JavaScript logic that decouples medical thresholds from UI components for easier updates as clinical guidelines evolve.
 
 ## Core Features
 
+- **Automated Report Scanning**: Integrated OCR and PDF parsing that allows users to upload report images or documents, automatically extracting key parameters.
 - **Rule-Based Interpretation**: Dynamically generated narratives based on the combination of parameter results.
 - **Interactive Checklists**: Personalized next steps categorized by timeline (Immediate, 30 Days, 90 Days).
 - **Comparison View**: Ability to track changes over time by comparing multiple reports side-by-side.
