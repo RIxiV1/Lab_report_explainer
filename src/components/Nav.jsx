@@ -2,9 +2,10 @@ export default function Nav({ children, sticky = true, className = "", onLogoCli
   const logo = (
     <div className="flex items-center gap-3">
       <img
-        src="/formen-logo.svg"
+        src="/formen-logo.png"
         alt=""
-        className="w-[32px] h-[32px] object-contain transition-transform hover:scale-105"
+        className="h-[28px] w-auto object-contain transition-transform hover:scale-105"
+        style={{ filter: 'drop-shadow(0 2px 6px rgba(17,24,82,0.12))' }}
       />
       <div>
         <div className="text-[14px] font-bold text-brand-900 leading-tight tracking-tight">ForMen Digital Clinic</div>

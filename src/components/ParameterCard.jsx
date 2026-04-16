@@ -2,12 +2,12 @@ import { useState, useEffect, memo } from "react";
 import { STATUS_CONFIG } from "../lib/constants";
 
 const DEEPER = {
-  spermCount: "Sperm concentration tells us how many sperm are available per millilitre. WHO defines ≥16 million/mL as normal.",
-  motility: "Motility measures the percentage of sperm that are moving. Total motility ≥42% is considered normal by WHO 2021 standards.",
-  morphology: "Morphology uses Kruger strict criteria — only 4% need to be 'textbook perfect' for a normal classification. Important: this measures how sperm look under a microscope as a rough fertility marker. It does NOT predict whether a baby conceived from this sperm will have any health or developmental issues.",
-  volume: "Semen volume reflects secretions from the seminal vesicles and prostate.",
-  pH: "pH measures the acidity of semen. Semen is naturally slightly alkaline (≥7.2) to protect sperm.",
-  wbc: "White blood cells (pus cells) in semen point to inflammation or infection if elevated (≥1 million/mL).",
+  spermCount: "How many sperm are in each millilitre of your sample. Healthy is 16 million or more (WHO 2021).",
+  motility: "How many sperm are actually swimming. Healthy is 42% or more in total (WHO 2021).",
+  morphology: "How many sperm have a normal shape under the microscope. Even 4% counts as normal — sperm rarely look 'textbook perfect'. Important: this only tells us about sperm shape. It does NOT predict whether a baby will have any health issues.",
+  volume: "The total amount of semen in one sample. Reflects fluid from the prostate and seminal vesicles.",
+  pH: "How acidic or alkaline the sample is. Semen is naturally a little alkaline (7.2 or higher) to protect the sperm.",
+  wbc: "Pus cells in semen. If raised (1 million per mL or more), it can be a sign of inflammation or infection.",
 };
 
 const STATUS_BORDER = {

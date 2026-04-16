@@ -11,25 +11,25 @@ import {
 } from "../lib/pdfExtract";
 
 const STEPS_TEXT = [
-  "Reading document locally...",
-  "Extracting text layer...",
-  "Matching semen analysis values...",
+  "Opening your report...",
+  "Reading the text...",
+  "Finding your numbers...",
   "Done.",
 ];
 
 const STEPS_OCR = [
-  "Reading document locally...",
-  "No text layer found — switching to OCR...",
-  "Rendering pages as images...",
-  "Running optical character recognition...",
-  "Matching semen analysis values...",
+  "Opening your report...",
+  "This is a scanned file — reading the image...",
+  "Preparing each page...",
+  "Reading the text from the image...",
+  "Finding your numbers...",
   "Done.",
 ];
 
 const STEPS_IMAGE = [
-  "Reading image...",
-  "Running OCR...",
-  "Matching values...",
+  "Opening the image...",
+  "Reading the text...",
+  "Finding your numbers...",
   "Done.",
 ];
 
@@ -79,6 +79,7 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
     const meta = {
       subtypes: parsed.subtypes || {},
       unitWarnings: parsed.unitWarnings || {},
+      extras: parsed.extras || {},
     };
     setExtractedMeta(meta);
     onExtracted(parsed.results, meta);
@@ -142,7 +143,7 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
       });
       finishParsedOrError(
         parsed,
-        "Could not find semen analysis metrics. Try pasting the report text or use manual entry."
+        "We couldn't find the test values in this file. Paste the report text below, or type the numbers in by hand."
       );
     } catch (err) {
       console.error("PDF OCR failed:", err);
@@ -154,7 +155,7 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
         pageCount: meta.pageCount,
         durationMs: durationSinceStart(),
       });
-      finishWithError("Could not read this PDF. Try uploading a clearer image or pasting the report text.");
+      finishWithError("Couldn't read this PDF. Try a clearer picture, or paste the text below.");
     }
   };
 
@@ -230,7 +231,7 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
         fileSize, pageCount,
         durationMs: durationSinceStart(),
       });
-      finishWithError("Could not read this PDF. Try uploading an image or pasting the report text instead.");
+      finishWithError("Couldn't read this PDF. Try uploading a photo of your report, or paste the text below.");
     }
   };
 
@@ -260,7 +261,7 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
       });
       finishParsedOrError(
         parsed,
-        "Could not find semen analysis metrics. Try pasting the report text or use manual entry."
+        "We couldn't find the test values in this file. Paste the report text below, or type the numbers in by hand."
       );
     } catch (err) {
       console.error("Image OCR failed:", err);
@@ -270,7 +271,7 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
         fileSize,
         durationMs: durationSinceStart(),
       });
-      finishWithError("Failed to read image. Try pasting text instead.");
+      finishWithError("Couldn't read this image. Try pasting the text below instead.");
     }
   };
 
@@ -282,7 +283,7 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
       handleImageOCR(file);
     } else {
       setStatus("error");
-      setMessage("Please upload a PDF or image file.");
+      setMessage("Please upload a PDF or a photo of your report.");
     }
   };
 
@@ -335,8 +336,8 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
           <div className="flex items-center gap-3 mb-6">
             <div className="w-8 h-8 flex items-center justify-center text-sm font-bold text-white" style={{ background: 'linear-gradient(135deg, #8BB992, #659F73)', boxShadow: '0 4px 12px rgba(101,159,115,0.3)' }}>✓</div>
             <div>
-              <p className="text-[14px] font-semibold text-gray-900">{keys.length} metrics extracted</p>
-              <p className="text-[11px] text-gray-500">Processed locally — your file never left this device</p>
+              <p className="text-[14px] font-semibold text-gray-900">Found {keys.length} values</p>
+              <p className="text-[11px] text-gray-500">Read on your phone. Nothing was uploaded.</p>
             </div>
           </div>
 
@@ -372,12 +373,12 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
           })}
 
           <button onClick={() => onAnalyzeNow(extractedData, extractedMeta)} className="btn-primary w-full py-4 text-[14px]">
-            Everything look correct? Analyse Now
+            Looks right? See My Report
           </button>
 
           <div className="flex justify-between mt-4">
             <button onClick={handleReset} className="text-[11px] text-gray-500 hover:text-gray-600 cursor-pointer bg-transparent border-none uppercase tracking-wide font-semibold transition-colors">
-              Upload different file
+              Use a different file
             </button>
             <button onClick={() => onExtracted(extractedData, extractedMeta)} className="text-[11px] text-brand-500 hover:text-brand-700 cursor-pointer bg-transparent border-none uppercase tracking-wide font-semibold transition-colors">
               Edit values first
@@ -398,7 +399,7 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
               <div className="w-4 h-4 border-[2px] border-white/30 border-t-white animate-spin rounded-full" />
             </div>
             <div>
-              <p className="text-[13px] font-semibold text-gray-900 mb-3">Processing Your Report</p>
+              <p className="text-[13px] font-semibold text-gray-900 mb-3">Reading your report</p>
               <div className="space-y-2 text-left max-w-[300px] mx-auto">
                 {steps.map((step, i) => (
                   <div key={i} className={`flex items-center gap-2 text-[12px] transition-opacity duration-300 ${i <= currentStep ? "opacity-100" : "opacity-20"}`}>
@@ -417,7 +418,7 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
               </div>
             </div>
             <p className="text-[10px] text-gray-500 uppercase tracking-wide">
-              Everything stays on this device — nothing is uploaded
+              Stays on your phone. Never uploaded.
             </p>
           </div>
         </div>
@@ -433,18 +434,18 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
           <div className="flex items-start gap-3 mb-5">
             <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center text-white text-sm font-bold" style={{ background: '#c2410c' }}>!</div>
             <div>
-              <p className="text-[14px] font-semibold text-gray-900 mb-1">We couldn't read this file</p>
+              <p className="text-[14px] font-semibold text-gray-900 mb-1">Couldn't read this file</p>
               <p role="alert" aria-live="assertive" className="text-[13px] text-gray-600 leading-relaxed">{message}</p>
             </div>
           </div>
 
           <div className="mb-4">
-            <label htmlFor="report-paste" className="label-clinical block mb-2">Paste report text instead</label>
+            <label htmlFor="report-paste" className="label-clinical block mb-2">Paste the report text here</label>
             <textarea
               id="report-paste"
               value={pastedText}
               onChange={(e) => setPastedText(e.target.value)}
-              placeholder="Paste the full text of your report here. We'll look for sperm count, motility, morphology, volume, pH, and WBC."
+              placeholder="Paste your full report text here. We'll look for sperm count, motility, morphology, volume, pH and pus cells."
               className="w-full bg-white p-3 text-[13px] leading-relaxed border border-[#E3E9EA] focus:outline-none focus:border-brand-500 transition-colors resize-y"
               rows={6}
             />
@@ -456,7 +457,7 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
               disabled={pastedText.trim().length < 20}
               className="btn-primary py-2.5 px-5 text-[11px]"
             >
-              Parse Pasted Text
+              Read This Text
             </button>
             <button onClick={handleReset} className="text-[11px] text-gray-500 hover:text-gray-800 cursor-pointer bg-transparent border-none uppercase tracking-wide font-semibold transition-colors">
               Try another file
@@ -500,7 +501,7 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
               Upload Lab Report
             </h2>
             <p className="text-[13px] text-gray-500 max-w-[320px] mx-auto leading-relaxed">
-              Drop a PDF or image here, click to browse, or paste your report text.
+              Drop a PDF or photo here, or click to choose a file. You can also paste the report text.
             </p>
           </div>
 
@@ -508,7 +509,7 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8BB992" strokeWidth={2}>
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
             </svg>
-            <span className="text-[11px] text-gray-500">File never leaves your device. Processed locally in your browser.</span>
+            <span className="text-[11px] text-gray-500">Your file stays on your phone. We never upload it.</span>
           </div>
         </div>
 

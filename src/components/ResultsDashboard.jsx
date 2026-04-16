@@ -4,12 +4,12 @@ import Nav from "./Nav";
 import { PARAM_ORDER, PARAM_META, VERDICT_CONFIG, TIMELINE_ORDER, FERTIQ_URL } from "../lib/constants";
 
 const CTX_LINES = {
-  spermCount: { NORMAL: "Within healthy range.", WARNING: "Slightly below WHO — commonly improvable.", CRITICAL: "Treatment options are well-established." },
-  motility:   { NORMAL: "Moving well.", WARNING: "Slightly reduced — responds to nutrition.", CRITICAL: "Most responsive parameter to treatment." },
-  morphology: { NORMAL: "Shape within guidelines.", WARNING: "Most misread value — context matters more.", CRITICAL: "Rarely determines outcomes alone." },
-  volume:     { NORMAL: "Volume is healthy.", WARNING: "Check collection technique and hydration.", CRITICAL: "Usually resolves with proper collection." },
-  pH:         { NORMAL: "Balanced.", WARNING: "Minor finding.", CRITICAL: "Worth a follow-up." },
-  wbc:        { NORMAL: "No infection signs.", WARNING: "Mild — usually manageable.", CRITICAL: "Treatable — talk to your doctor." },
+  spermCount: { NORMAL: "Healthy count.", WARNING: "A little low — often improves with changes.", CRITICAL: "There are many ways to improve this." },
+  motility:   { NORMAL: "Sperm are moving well.", WARNING: "A bit low — often improves with better food and habits.", CRITICAL: "This usually responds well to treatment." },
+  morphology: { NORMAL: "Shape is fine.", WARNING: "This number is easy to misread. The rest of your report matters more.", CRITICAL: "On its own, this rarely decides the outcome." },
+  volume:     { NORMAL: "Volume is healthy.", WARNING: "Drink more water and check how the sample was collected.", CRITICAL: "Usually fixes with a proper sample collection." },
+  pH:         { NORMAL: "Balanced.", WARNING: "A small finding — nothing serious.", CRITICAL: "Worth showing your doctor." },
+  wbc:        { NORMAL: "No signs of infection.", WARNING: "Mild — usually easy to manage.", CRITICAL: "This can be treated. Talk to your doctor." },
 };
 
 // Share payload deliberately omits raw numeric values.
@@ -41,9 +41,9 @@ const FOOD_TIPS = [
 ];
 
 const LIFESTYLE_TIPS = [
-  "Avoid laptops on lap and hot baths",
-  "Sleep 7–9 hrs, exercise 150 min/week",
-  "Cut alcohol to ≤ 4/week; stop smoking",
+  "Keep laptops off your lap. Avoid very hot baths.",
+  "Sleep 7–9 hours. Exercise at least 150 minutes a week.",
+  "Cut down on alcohol. Stop smoking if you can.",
 ];
 
 function TMSCGauge({ value }) {
@@ -169,8 +169,8 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
 
           {/* Clinical sign-off — explicit that this is not a diagnosis */}
           <p className="text-[11px] text-white/40 mb-6 leading-relaxed max-w-[560px]">
-            This is a plain-English summary of your report against WHO 2021 reference ranges.
-            It is not a medical diagnosis. For clinical decisions, please consult a qualified doctor.
+            A simple summary of your report, compared to WHO 2021 ranges.
+            This is not a diagnosis. For any medical decision, please see a doctor.
           </p>
 
           {/* Row 2: Short narrative (2 sentences only) */}
@@ -180,15 +180,26 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
             </p>
           )}
 
-          {/* Row 3: TMSC — the visual centerpiece */}
+          {/* Row 3: TMSC — the visual centerpiece.
+              When the value is below 1 million, a literal "0" or "0.3"
+              reads like the calculator failed. We show "Below 1 million"
+              instead — more honest and less alarming. */}
           {tmsc && (
             <div className="mb-10 max-w-[500px]">
               <p className="text-[10px] text-white/30 uppercase tracking-wider mb-2">Total Motile Sperm Count</p>
               <div className="flex items-baseline gap-2">
-                <span className="font-serif text-[clamp(56px,12vw,80px)] font-bold text-white leading-none tabular-nums tracking-tight">
-                  {displayValue(tmsc.value)}
-                </span>
-                <span className="text-[13px] text-white/35 font-medium">million</span>
+                {tmsc.value < 1 ? (
+                  <span className="font-serif text-[clamp(40px,8vw,56px)] font-bold text-white leading-none tracking-tight">
+                    Below 1 million
+                  </span>
+                ) : (
+                  <>
+                    <span className="font-serif text-[clamp(56px,12vw,80px)] font-bold text-white leading-none tabular-nums tracking-tight">
+                      {displayValue(tmsc.value)}
+                    </span>
+                    <span className="text-[13px] text-white/35 font-medium">million</span>
+                  </>
+                )}
               </div>
               <TMSCGauge value={tmsc.value} />
               <span className="inline-block mt-4 px-3 py-1 text-[11px] font-bold uppercase tracking-wide" style={{
@@ -257,11 +268,11 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
         <section className="mb-14">
           <div className="p-7 flex flex-col md:flex-row items-start md:items-center justify-between gap-5" style={{ background: "linear-gradient(135deg, #F2F3F9, #EAECFA)", border: '1px solid rgba(218,225,249,0.4)' }}>
             <div>
-              <p className="font-serif text-[20px] font-bold text-gray-900 mb-1">Speak to a Specialist</p>
-              <p className="text-[13px] text-gray-500 max-w-[380px]">15 minutes to walk through your exact results with a fertility doctor.</p>
+              <p className="font-serif text-[20px] font-bold text-gray-900 mb-1">Talk to a fertility doctor</p>
+              <p className="text-[13px] text-gray-500 max-w-[380px]">A 15-minute call. A doctor will go through your exact numbers with you.</p>
             </div>
             <a href={DOCTOR_URL} target="_blank" rel="noopener noreferrer" className="btn-primary shrink-0">
-              Book Free Consultation
+              Book Free Call
             </a>
           </div>
         </section>
@@ -328,7 +339,7 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
 
         {/* ── While You Wait — single compact block ── */}
         <section className="mb-14">
-          <h3 className="font-serif text-[24px] font-bold text-gray-900 tracking-tight mb-5">While You Wait</h3>
+          <h3 className="font-serif text-[24px] font-bold text-gray-900 tracking-tight mb-5">Healthy Habits</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-[1px] bg-[#E3E9EA]">
             <div className="bg-white p-5">
               <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-3">Diet</p>

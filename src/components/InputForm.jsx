@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { REQUIRED_FIELDS, FM_CODE_REGEX, DRAFT_KEY } from "../lib/constants";
 import Nav from "./Nav";
 import ReportScanner from "./ReportScanner";
+import ManageDataPanel from "./ManageDataPanel";
 
 function loadDraft() {
   try {
@@ -17,12 +18,12 @@ function validate(field, raw, { requireValue }) {
   return "";
 }
 
-export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBackToReport, lastResultDate, onRestoreLastResult }) {
+export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBackToReport, lastResultDate, onRestoreLastResult, initialEntryMode = "scan" }) {
   const draft = useRef(loadDraft()).current;
   const [values, setValues] = useState(draft.values || {});
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
-  const [entryMode, setEntryMode] = useState("scan");
+  const [entryMode, setEntryMode] = useState(initialEntryMode);
   const [activeTooltip, setActiveTooltip] = useState(null);
   const [age, setAge] = useState(draft.age || "");
   const [monthsTrying, setMonthsTrying] = useState(draft.monthsTrying || "");
@@ -30,16 +31,24 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
   const [monthsError, setMonthsError] = useState("");
   const [fmCode, setFmCode] = useState("");
   const [fmCodeError, setFmCodeError] = useState("");
+  const [showManagePanel, setShowManagePanel] = useState(false);
   const tooltipRef = useRef(null);
   const draftTimer = useRef(null);
 
   useEffect(() => {
     clearTimeout(draftTimer.current);
     draftTimer.current = setTimeout(() => {
-      try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ values, age, monthsTrying })); } catch {}
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({
+          values, age, monthsTrying,
+          // Preserve the motility subtype across reloads so a re-grade
+          // uses the same WHO threshold (total 42% vs progressive 30%).
+          motilitySubtype: extractedMeta.subtypes?.motility || null,
+        }));
+      } catch {}
     }, 500);
     return () => clearTimeout(draftTimer.current);
-  }, [values, age, monthsTrying]);
+  }, [values, age, monthsTrying, extractedMeta]);
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -135,24 +144,32 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
   //   so the classifier uses the right WHO threshold (42% vs 30%).
   // - unitWarnings: per-field warnings (e.g. WBC reported as /hpf) shown
   //   as hints under the relevant input.
-  const [extractedMeta, setExtractedMeta] = useState({ subtypes: {}, unitWarnings: {} });
+  // Seeded from draft so "Edit Details" re-grades against the same threshold.
+  const [extractedMeta, setExtractedMeta] = useState({
+    subtypes: draft.motilitySubtype ? { motility: draft.motilitySubtype } : {},
+    unitWarnings: {},
+    extras: {},
+  });
 
-  function handleExtractedData(extractedValues, meta = { subtypes: {}, unitWarnings: {} }) {
+  function handleExtractedData(extractedValues, meta = { subtypes: {}, unitWarnings: {}, extras: {} }) {
     setExtractedMeta(meta);
     setValues((prev) => ({
       ...prev,
       ...Object.fromEntries(Object.entries(extractedValues).map(([k, v]) => [k, String(v)])),
     }));
+    // Only auto-fill age from the report if the user hasn't typed one already.
+    if (meta.extras?.age && age === "") setAge(String(meta.extras.age));
     setEntryMode("manual");
   }
 
-  function handleAnalyzeNow(extractedValues, meta = { subtypes: {}, unitWarnings: {} }) {
+  function handleAnalyzeNow(extractedValues, meta = { subtypes: {}, unitWarnings: {}, extras: {} }) {
     setExtractedMeta(meta);
     const formData = {};
     for (const [k, v] of Object.entries(extractedValues)) {
       formData[k] = typeof v === "number" ? v : parseFloat(v);
     }
-    if (age !== "") formData.age = parseFloat(age);
+    const effectiveAge = age !== "" ? parseFloat(age) : meta.extras?.age;
+    if (effectiveAge != null && !isNaN(effectiveAge)) formData.age = effectiveAge;
     if (monthsTrying !== "") formData.ttcMonths = parseFloat(monthsTrying);
     if (meta.subtypes?.motility) formData.motilitySubtype = meta.subtypes.motility;
     onSubmit(formData);
@@ -252,12 +269,12 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
             Understand Your<br />Semen Analysis
           </h1>
           <p className="text-[15px] text-gray-500 max-w-[440px] leading-relaxed">
-            Enter your report values. We'll explain every number in plain English and show you exactly what to do next.
+            Upload your report, or type the values in. We'll explain every number in simple words, and tell you what to do next.
           </p>
           <div className="flex items-center gap-2 mt-6">
             <div className="w-1.5 h-1.5 bg-wellness-500" style={{ boxShadow: '0 0 6px rgba(139,185,146,0.5)' }} />
             <span className="text-[11px] text-gray-500 uppercase tracking-wide">
-              Analysed in your browser · stored only on this device
+              Stays on your phone · nobody else sees it
             </span>
           </div>
         </header>
@@ -339,11 +356,11 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
 
               {/* Context */}
               <div className="bg-[#EFF5F6] p-5 mb-8">
-                <p className="label-clinical mb-4">Personal Context (optional)</p>
+                <p className="label-clinical mb-4">About you (optional)</p>
                 <div className="grid grid-cols-2 gap-4">
                   {[
                     { id: "age", label: "Age", unit: "years", value: age, setter: setAge, error: ageError, errSetter: setAgeError },
-                    { id: "monthsTrying", label: "Months TTC", unit: "months", value: monthsTrying, setter: setMonthsTrying, error: monthsError, errSetter: setMonthsError },
+                    { id: "monthsTrying", label: "Trying for a baby", unit: "months", value: monthsTrying, setter: setMonthsTrying, error: monthsError, errSetter: setMonthsError },
                   ].map((f) => (
                     <div key={f.id}>
                       <label htmlFor={f.id} className="text-[10px] text-gray-500 uppercase tracking-wide block mb-2">{f.label}</label>
@@ -372,7 +389,7 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
               </div>
 
               <button type="submit" disabled={!isValid} className="btn-primary w-full py-4">
-                Analyse My Report
+                See My Report
               </button>
             </form>
           </div>
@@ -385,8 +402,8 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
           </summary>
           <div className="mt-4 max-w-[360px] animate-editorial">
             <p className="text-[12px] text-neutral-500 mb-3">
-              Enter the FM Code from a previous session on this device.
-              Reports are stored locally in this browser — they can't be opened on another device.
+              Type in the FM code from your earlier report.
+              Your reports are saved only on this phone, so this won't work from another device.
             </p>
             <div className="flex gap-2">
               <input
@@ -405,7 +422,31 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
             )}
           </div>
         </details>
+
+        <button
+          type="button"
+          onClick={() => setShowManagePanel(true)}
+          className="mt-4 text-[11px] text-neutral-400 uppercase tracking-wide cursor-pointer hover:text-neutral-600 bg-transparent border-none transition-colors"
+        >
+          Manage my data
+        </button>
       </div>
+
+      {showManagePanel && (
+        <ManageDataPanel
+          onClose={() => setShowManagePanel(false)}
+          onDataWiped={() => {
+            // After wipe, reset all in-memory form state too so the
+            // user doesn't see ghost data still on screen.
+            setValues({});
+            setErrors({});
+            setTouched({});
+            setAge("");
+            setMonthsTrying("");
+            setFmCode("");
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import ResultsDashboard from "./components/ResultsDashboard";
 import CompareView from "./components/CompareView";
 import { analyzeReport } from "./lib/analyzeReport";
 import { narratives } from "./lib/narratives";
-import { generateCode, saveResult, loadResult, cleanupExpiredResults } from "./lib/resultStore";
+import { generateCode, saveResult, loadResult, cleanupExpiredResults, requestStoragePersistence } from "./lib/resultStore";
 import { DRAFT_KEY } from "./lib/constants";
 
 function applyModifier(narrative, key) {
@@ -33,6 +33,17 @@ export default function App() {
   const [fmCode, setFmCode] = useState(null);
   const [lastResultDate, setLastResultDate] = useState(null);
   const [lookupError, setLookupError] = useState("");
+  // Which input mode the form should open in. Defaults to "scan" for new
+  // sessions, but flips to "manual" when the user is coming back from a
+  // result via "Edit Details" — they already have values to tweak.
+  const [inputEntryMode, setInputEntryMode] = useState("scan");
+
+  // Reset scroll on every screen change. Without this, navigating from
+  // the long results page to the input form (or vice versa) keeps the
+  // previous scroll position, dropping the user mid-page.
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [screen]);
   // On mount: purge old stored results (>6 months) and auto-detect last result.
   // The "Welcome back" banner only appears if the last result is from a previous
   // day — same-day refreshes (e.g. after a failed scan) shouldn't trigger it.
@@ -54,9 +65,17 @@ export default function App() {
   function handleSubmit(formData) {
     setLookupError("");
     const result = analyzeReport(formData);
+    // Persist the original inputs alongside the analysis so "Edit Details"
+    // can repopulate every field (age, months trying, motility subtype) —
+    // not just the parameter values.
+    result.originalInputs = formData;
     const snippet = getNarrative(result.snippetKey, result.urgencyFlag, result.ageFlag);
     const code = generateCode();
     saveResult(code, result);
+    // First time the user generates a real result, ask the browser to
+    // persist this origin's storage so it isn't evicted by aggressive
+    // cache cleanup (notably on iOS Safari).
+    requestStoragePersistence();
     setReportResult(result);
     setActiveSnippet(snippet);
     setFmCode(code);
@@ -102,6 +121,7 @@ export default function App() {
     setFmCode(null);
     setLastResultDate(null);
     setLookupError("");
+    setInputEntryMode("scan");
     try {
       localStorage.removeItem(DRAFT_KEY);
       localStorage.removeItem(LAST_RESULT_KEY);
@@ -119,6 +139,7 @@ export default function App() {
           onBackToReport={reportResult ? () => setScreen("results") : null}
           lastResultDate={lastResultDate}
           onRestoreLastResult={handleRestoreLastResult}
+          initialEntryMode={inputEntryMode}
         />
       )}
       {screen === "results" && reportResult && activeSnippet && (
@@ -129,17 +150,28 @@ export default function App() {
           onReset={handleReset}
           onBackToInput={() => {
             setLookupError("");
-            // Write current result values into draft so the form shows them
+            // Restore everything the user originally entered: parameter
+            // values, age, months trying, and the motility subtype (so the
+            // engine grades against the same WHO threshold as before).
             if (reportResult?.parameters) {
               const draftValues = {};
               for (const [key, param] of Object.entries(reportResult.parameters)) {
                 draftValues[key] = String(param.value);
               }
+              const inputs = reportResult.originalInputs || {};
+              const subtype = reportResult.parameters?.motility?.subtype || inputs.motilitySubtype || null;
               try {
                 const existing = JSON.parse(localStorage.getItem(DRAFT_KEY) || "{}");
-                localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...existing, values: draftValues }));
+                localStorage.setItem(DRAFT_KEY, JSON.stringify({
+                  ...existing,
+                  values: draftValues,
+                  age: inputs.age != null ? String(inputs.age) : (existing.age || ""),
+                  monthsTrying: inputs.ttcMonths != null ? String(inputs.ttcMonths) : (existing.monthsTrying || ""),
+                  motilitySubtype: subtype,
+                }));
               } catch {}
             }
+            setInputEntryMode("manual");
             setScreen("input");
           }}
           onCompare={() => setScreen("compare")}

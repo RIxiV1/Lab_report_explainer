@@ -173,6 +173,46 @@ function findImmotile(text) {
 // impossible sum and means one of the values is misread.
 const MOTILITY_SUM_TOLERANCE = 5;
 
+const MONTH_ABBR = {
+  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+  jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12,
+};
+
+// Returns age in years if the report mentions one directly or via DOB.
+// Indian labs print these with wide formatting variation, so we try both:
+//   "Age: 32 Y" / "Age 32 Years"
+//   "DOB: 15/03/1990" / "Date of Birth: 15-Mar-1990"
+function extractAge(text) {
+  const ageMatch = text.match(/\bage\b\s*[:\-]?\s*(\d{1,3})\s*(?:y|yr|yrs|year|years)?\b/i);
+  if (ageMatch) {
+    const a = parseInt(ageMatch[1], 10);
+    if (a >= 18 && a <= 80) return a;
+  }
+
+  const dobMatch = text.match(
+    /(?:d\.?o\.?b\.?|date\s*of\s*birth|birth\s*date)\s*[:\-]?\s*(\d{1,2})[\/\-.\s]+(\d{1,2}|[a-z]{3,9})[\/\-.\s]+(\d{2,4})/i
+  );
+  if (!dobMatch) return null;
+
+  const day = parseInt(dobMatch[1], 10);
+  const monthRaw = dobMatch[2];
+  const month = /^\d+$/.test(monthRaw)
+    ? parseInt(monthRaw, 10)
+    : MONTH_ABBR[monthRaw.toLowerCase().slice(0, 3)];
+  let year = parseInt(dobMatch[3], 10);
+  if (year < 100) year += year > 30 ? 1900 : 2000;
+  if (!month || month > 12 || day < 1 || day > 31 || year < 1900) return null;
+
+  const dob = new Date(year, month - 1, day);
+  if (isNaN(dob.getTime())) return null;
+
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const m = today.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+  return age >= 18 && age <= 100 ? age : null;
+}
+
 export function parseReportText(text) {
   const normalized = normalize(text);
   const results = {};
@@ -214,11 +254,14 @@ export function parseReportText(text) {
     }
   }
 
+  const age = extractAge(normalized);
+
   return {
     results,
     matched,
     subtypes,
     unitWarnings: warnings, // kept key-name for backward compat
+    extras: age != null ? { age } : {},
     foundCount: Object.keys(results).length,
   };
 }

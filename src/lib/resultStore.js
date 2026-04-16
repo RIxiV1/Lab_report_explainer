@@ -37,6 +37,75 @@ export function loadResult(code) {
   }
 }
 
+// Asks the browser to mark this origin's storage as persistent so it
+// survives aggressive cache-eviction (especially on iOS Safari, which
+// otherwise prunes site data within a few weeks of disuse). The browser
+// decides whether to grant — Chrome/Edge silently allow based on
+// engagement signals, Firefox may prompt. Idempotent and safe to call
+// repeatedly. Without this, a user's reports could vanish before the
+// 6-month TTL even fires.
+export async function requestStoragePersistence() {
+  try {
+    if (navigator.storage?.persist && !(await navigator.storage.persisted())) {
+      await navigator.storage.persist();
+    }
+  } catch {
+    // API unavailable — no-op
+  }
+}
+
+// Returns a summary of all FM-related data stored in localStorage.
+// Used by the "Manage my data" panel so users can see what's stored
+// and how old it is before deciding to wipe.
+export function getStorageStats() {
+  let resultCount = 0;
+  let oldestTs = Infinity;
+  let newestTs = 0;
+  let approxBytes = 0;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith("fm_")) continue;
+      const raw = localStorage.getItem(key) || "";
+      // UTF-16 in JS strings: 2 bytes per char is the right rough estimate
+      approxBytes += (key.length + raw.length) * 2;
+      if (key.startsWith(RESULT_KEY_PREFIX)) {
+        resultCount++;
+        try {
+          const ts = Date.parse(JSON.parse(raw)?.timestamp);
+          if (!Number.isNaN(ts)) {
+            if (ts < oldestTs) oldestTs = ts;
+            if (ts > newestTs) newestTs = ts;
+          }
+        } catch {}
+      }
+    }
+  } catch {}
+  return {
+    resultCount,
+    oldestDate: oldestTs === Infinity ? null : new Date(oldestTs),
+    newestDate: newestTs === 0 ? null : new Date(newestTs),
+    approxBytes,
+  };
+}
+
+// Removes every FM-related key from localStorage. Used by the
+// "Delete all my data" action — irreversible, scoped only to fm_*
+// so we don't touch other origins' state.
+export function wipeAllData() {
+  try {
+    const keysToDelete = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("fm_")) keysToDelete.push(key);
+    }
+    for (const key of keysToDelete) localStorage.removeItem(key);
+    return keysToDelete.length;
+  } catch {
+    return 0;
+  }
+}
+
 // Remove result and action entries older than MAX_AGE_MS.
 // Called once on app initialisation — failures are swallowed silently.
 export function cleanupExpiredResults(now = Date.now()) {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { loadResult } from "../lib/resultStore";
-import { PARAM_ORDER, PARAM_META, FM_CODE_REGEX, STATUS_CONFIG, STATUS_LABELS, STATUS_RANK } from "../lib/constants";
+import { PARAM_ORDER, PARAM_META, FM_CODE_REGEX, STATUS_CONFIG, STATUS_RANK } from "../lib/constants";
 import Nav from "./Nav";
 
 function getDelta(oldVal, newVal, higherBetter) {
@@ -155,7 +155,7 @@ export default function CompareView({ onBack, onLogoClick, initialCode }) {
                         <div className="font-serif text-xl font-bold text-gray-900">{pA.value}</div>
                         <div className="mt-2">
                           <span className={`text-[10px] font-semibold ${cfgA.badgeBg} ${cfgA.badgeText} px-2 py-0.5`}>
-                            {STATUS_LABELS[pA.status]}
+                            {cfgA.label}
                           </span>
                         </div>
                       </div>
@@ -165,7 +165,7 @@ export default function CompareView({ onBack, onLogoClick, initialCode }) {
                         <div className="font-serif text-xl font-bold text-gray-900">{pB.value}</div>
                         <div className="mt-2">
                           <span className={`text-[10px] font-semibold ${cfgB.badgeBg} ${cfgB.badgeText} px-2 py-0.5`}>
-                            {STATUS_LABELS[pB.status]}
+                            {cfgB.label}
                           </span>
                         </div>
                       </div>
