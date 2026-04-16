@@ -87,10 +87,17 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
   }
 
   const filledRequired = REQUIRED_FIELDS.filter((f) => values[f.key] !== "" && values[f.key] !== undefined).length;
-  const isValid = REQUIRED_FIELDS.every((f) => {
+  // Counts fields that are filled-but-out-of-range. We need this so
+  // the submit button can say "Fix the highlighted field" instead of
+  // the misleading "Fill 0 more to continue" when every field has a
+  // value but one is out of bounds (e.g. volume entered as 0 with
+  // min:0.1).
+  const invalidFilled = REQUIRED_FIELDS.filter((f) => {
     const raw = values[f.key];
-    return raw !== "" && raw !== undefined && validate(f, raw, { requireValue: true }) === "";
-  });
+    return raw !== "" && raw !== undefined && validate(f, raw, { requireValue: true }) !== "";
+  }).length;
+  const remaining = REQUIRED_FIELDS.length - filledRequired;
+  const isValid = remaining === 0 && invalidFilled === 0;
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -279,10 +286,17 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
                 {REQUIRED_FIELDS.map((f) => {
                   const raw = values[f.key];
                   const hasValue = raw !== "" && raw !== undefined;
-                  const fieldErr = errors[f.key];
-                  const hasError = touched[f.key] && !!fieldErr;
-                  const isFieldValid = hasValue && !fieldErr &&
-                    validate(f, raw, { requireValue: true }) === "";
+                  // Recompute the live validation result so we can show
+                  // an error even if errors[f.key] hasn't been set yet
+                  // (the user typed an out-of-range value but never blurred).
+                  const liveErr = hasValue ? validate(f, raw, { requireValue: true }) : "";
+                  const fieldErr = errors[f.key] || liveErr;
+                  // Show error if: blurred AND has error, OR every field
+                  // is filled but this one is still out-of-range. The
+                  // second condition stops the "Fix the highlighted
+                  // field" button from being a wild-goose-chase prompt.
+                  const hasError = !!fieldErr && (touched[f.key] || (hasValue && remaining === 0));
+                  const isFieldValid = hasValue && !liveErr;
                   return (
                     <ParameterInput
                       key={f.key}
@@ -367,7 +381,13 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
                   animation: 'btn-ready-pulse 2.4s ease-in-out infinite',
                 } : undefined}
               >
-                {isValid ? "See My Report →" : `Fill ${REQUIRED_FIELDS.length - filledRequired} more to continue`}
+                {isValid
+                  ? "See My Report →"
+                  : remaining > 0
+                    ? `Fill ${remaining} more to continue`
+                    : invalidFilled === 1
+                      ? "Fix the highlighted field"
+                      : `Fix ${invalidFilled} fields to continue`}
               </button>
             </form>
           </div>
