@@ -291,8 +291,13 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
       <div className="max-w-[640px] mx-auto px-6 pt-16 pb-24">
         {/* Header — flush left per design spec */}
         <header className="mb-14 animate-editorial">
-          <h1 className="font-serif text-[clamp(32px,6vw,48px)] text-gray-900 mb-4 leading-[1.1] tracking-tight">
-            Understand Your<br />Semen Analysis
+          {/* Asymmetric weight stack — soft "Understand Your" sets up
+              the bold-serif punch of "Semen Analysis." Creates editorial
+              tension instead of a flat single-weight headline. */}
+          <h1 className="font-serif text-[clamp(32px,6vw,48px)] mb-4 leading-[1.1] tracking-tight">
+            <span className="font-normal text-gray-400 italic">Understand Your</span>
+            <br />
+            <span className="font-bold text-gray-900">Semen Analysis</span>
           </h1>
           <p className="text-[15px] text-gray-500 max-w-[440px] leading-relaxed">
             Upload your report, or type the values in. We'll explain every number in simple words, and tell you what to do next.

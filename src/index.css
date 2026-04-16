@@ -161,10 +161,14 @@
     border-bottom: 1px solid rgba(198, 197, 210, 0.1);
   }
 
-  /* ── Status accent top border ── */
+  /* ── Status accent top border ──
+     Critical uses a desaturated brick (#9A4A2D) rather than an
+     alarm-orange. Communicates "medical priority" without triggering
+     the panic response a saturated red/orange does on a fertility
+     report. The user is already anxious. */
   .status-border-normal  { border-top: 3px solid #8BB992; }
   .status-border-warning { border-top: 3px solid #FFB800; }
-  .status-border-critical { border-top: 3px solid #c2410c; }
+  .status-border-critical { border-top: 3px solid #9A4A2D; }
 }
 
 /* ── Fade-up animation with editorial timing ── */

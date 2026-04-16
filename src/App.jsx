@@ -17,6 +17,7 @@ import {
   saveLastResultPointer,
   clearLastResultPointer,
 } from "./lib/resultStore";
+import { todayLabel } from "./lib/uiUtils";
 
 function applyModifier(narrative, key) {
   const mod = narratives[key];
@@ -33,12 +34,6 @@ function getNarrative(snippetKey, urgencyFlag, ageFlag) {
   if (urgencyFlag === "HIGH") result = applyModifier(result, "HIGH_URGENCY_MODIFIER");
   if (ageFlag) result = applyModifier(result, "AGE_MODIFIER");
   return result;
-}
-
-// One canonical date format for storage + display, so the "Welcome
-// back" banner comparison ("is this from today?") is reliable.
-function todayLabel() {
-  return new Date().toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" });
 }
 
 export default function App() {

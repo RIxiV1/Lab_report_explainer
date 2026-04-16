@@ -1,5 +1,4 @@
-import { useState, useEffect, memo } from "react";
-import { STATUS_CONFIG } from "../lib/constants";
+import { useState, memo } from "react";
 
 const DEEPER = {
   spermCount: "How many sperm are in each millilitre of your sample. Healthy is 16 million or more (WHO 2021).",
@@ -16,82 +15,92 @@ const STATUS_BORDER = {
   CRITICAL: "status-border-critical",
 };
 
-function InfoModal({ paramName, text, onClose }) {
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    function onKey(e) { if (e.key === "Escape") onClose(); }
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [onClose]);
+// Per-status tonal wash + status-word colour. Wash kept ≤ 5% opacity
+// so the value text contrast still passes WCAG AA. Status word uses
+// the same hue as the top stripe for visual unity.
+const STATUS_WASH = {
+  NORMAL:   { bg: "rgba(139,185,146,0.04)",  word: "text-wellness-800" },
+  WARNING:  { bg: "rgba(255,184,0,0.05)",    word: "text-yellow-800" },
+  CRITICAL: { bg: "rgba(154,74,45,0.05)",    word: "text-orange-700" },
+};
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6" onClick={onClose}>
-      <div className="absolute inset-0 bg-brand-900/60 backdrop-blur-[8px]" />
-      <div
-        className="relative bg-white p-8 max-w-[420px] w-full animate-editorial whisper-shadow-lg"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <p className="text-[11px] font-semibold uppercase tracking-clinical text-neutral-400 mb-3">{paramName}</p>
-        <p className="text-[14px] text-neutral-700 leading-[1.8]">{text}</p>
-        <button
-          onClick={onClose}
-          className="mt-6 text-[11px] text-neutral-400 uppercase tracking-wide font-semibold cursor-pointer bg-transparent border-none hover:text-neutral-700 transition-colors"
-        >
-          Close
-        </button>
-      </div>
-    </div>
-  );
-}
+const STATUS_WORD = {
+  NORMAL:   "in range",
+  WARNING:  "watch",
+  CRITICAL: "needs focus",
+};
 
 export default memo(function ParameterCard({ paramKey, paramName, value, unit, whoRange, status, contextualizingLine }) {
-  const [showModal, setShowModal] = useState(false);
-  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.NORMAL;
+  const [expanded, setExpanded] = useState(false);
   const borderTop = STATUS_BORDER[status] || STATUS_BORDER.NORMAL;
+  const wash = STATUS_WASH[status] || STATUS_WASH.NORMAL;
+  const statusWord = STATUS_WORD[status];
   const deeper = DEEPER[paramKey] || null;
+  const deeperId = `${paramKey}-deeper`;
 
   return (
-    <>
-      <div className={`card-tonal ${borderTop} p-6 flex flex-col group`}>
-        <p className="text-[14px] font-bold tracking-wide text-gray-900 mb-1 leading-none">{paramName}</p>
-
-        <div className="flex items-center gap-2 mb-4">
-          <span className="text-[11px] text-gray-500 font-medium">{whoRange}</span>
-          {status !== "NORMAL" && (
-            <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 ${cfg.badgeBg} ${cfg.badgeText}`}>
-              {cfg.label}
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-baseline gap-1.5 mb-2">
-          <span className="font-serif text-[38px] text-brand-900 font-bold leading-none tracking-tight">{value}</span>
-          {unit && <span className="text-xs font-semibold text-gray-500 ml-1">{unit}</span>}
-        </div>
-
-        <p className="text-[13px] text-gray-600 leading-relaxed mb-6 flex-1">{contextualizingLine || "Everything looks good here."}</p>
-
-        {deeper && (
-          <div className="pt-3 mt-auto" style={{ borderTop: '1px solid rgba(198, 197, 210, 0.15)' }}>
-            <button
-              onClick={() => setShowModal(true)}
-              className="text-[11px] uppercase tracking-wider font-bold text-brand-500 flex items-center gap-2 hover:text-brand-800 transition-colors cursor-pointer bg-transparent border-none group-hover:translate-x-0.5"
-              style={{ transition: 'all 0.2s cubic-bezier(0.2,0,0,1)' }}
-            >
-              <span className="w-5 h-5 bg-surface-high text-neutral-400 flex items-center justify-center text-[11px] font-serif italic">i</span>
-              What it means
-            </button>
-          </div>
+    <div
+      className={`card-tonal ${borderTop} p-6 flex flex-col group relative`}
+      style={{ background: wash.bg, boxShadow: '0 24px 48px rgba(22,29,30,0.06), 0 1px 0 rgba(17,24,82,0.04)' }}
+    >
+      {/* Header — name + status as italic serif annotation (medical-journal style, not a chip) */}
+      <div className="mb-1 flex items-baseline gap-2 flex-wrap">
+        <p className="text-[14px] font-bold tracking-wide text-gray-900 leading-none">{paramName}</p>
+        {status !== "NORMAL" && statusWord && (
+          <span className={`font-serif italic text-[12px] ${wash.word} leading-none`}>
+            {statusWord}
+          </span>
         )}
       </div>
 
-      {showModal && deeper && (
-        <InfoModal paramName={paramName} text={deeper} onClose={() => setShowModal(false)} />
+      {/* WHO range — small, subdued */}
+      <p className="text-[11px] text-gray-500 font-medium mb-5">{whoRange}</p>
+
+      {/* Hero number — bigger, with units as marginalia (small italic gray) */}
+      <div className="flex items-baseline gap-1.5 mb-3">
+        <span className="font-serif text-[clamp(44px,9vw,60px)] text-brand-900 font-bold leading-none tracking-tight tabular-nums">
+          {value}
+        </span>
+        {unit && (
+          <span className="text-[10px] italic text-gray-400 font-normal ml-1 tracking-wide">
+            {unit}
+          </span>
+        )}
+      </div>
+
+      <p className="text-[13px] text-gray-600 leading-relaxed mb-6 flex-1">
+        {contextualizingLine || "Everything looks good here."}
+      </p>
+
+      {deeper && (
+        <div className="pt-3 mt-auto" style={{ borderTop: '1px solid rgba(198, 197, 210, 0.15)' }}>
+          <button
+            onClick={() => setExpanded((p) => !p)}
+            aria-expanded={expanded}
+            aria-controls={deeperId}
+            className="text-[11px] uppercase tracking-wider font-bold text-brand-500 flex items-center gap-2 hover:text-brand-800 transition-colors cursor-pointer bg-transparent border-none"
+            style={{ transition: 'all 0.2s cubic-bezier(0.2,0,0,1)' }}
+          >
+            <span className="w-5 h-5 bg-surface-high text-neutral-400 flex items-center justify-center text-[11px] font-serif italic">
+              {expanded ? "×" : "i"}
+            </span>
+            {expanded ? "Hide" : "What it means"}
+          </button>
+
+          {/* Inline reveal — animates within the card. The grid uses
+              items-start so neighbouring cards aren't stretched when
+              this expands. */}
+          {expanded && (
+            <div
+              id={deeperId}
+              className="mt-4 pt-4 animate-editorial"
+              style={{ borderTop: '1px solid rgba(198, 197, 210, 0.2)' }}
+            >
+              <p className="text-[13px] text-neutral-700 leading-[1.7]">{deeper}</p>
+            </div>
+          )}
+        </div>
       )}
-    </>
+    </div>
   );
 });

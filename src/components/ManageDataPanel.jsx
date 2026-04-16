@@ -1,15 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { getStorageStats, wipeAllData } from "../lib/resultStore";
+import { formatDate } from "../lib/uiUtils";
 
 function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-}
-
-function formatDate(date) {
-  if (!date) return "—";
-  return date.toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" });
 }
 
 export default function ManageDataPanel({ onClose, onDataWiped }) {

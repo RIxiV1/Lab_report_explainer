@@ -3,6 +3,8 @@ import ParameterCard from "./ParameterCard";
 import Nav from "./Nav";
 import { PARAM_ORDER, PARAM_META, VERDICT_CONFIG, TIMELINE_ORDER, FERTIQ_URL } from "../lib/constants";
 import { getActions, saveActions } from "../lib/resultStore";
+import { useCountUp } from "../lib/useCountUp";
+import { displayValue } from "../lib/uiUtils";
 
 const CTX_LINES = {
   spermCount: { NORMAL: "Healthy count.", WARNING: "A little low — often improves with changes.", CRITICAL: "There are many ways to improve this." },
@@ -77,20 +79,15 @@ function TMSCGauge({ value }) {
   );
 }
 
-// Round display values to avoid OCR artifacts like "7.707"
-function displayValue(value) {
-  if (Number.isInteger(value)) return value;
-  const str = String(value);
-  const decimals = str.includes(".") ? str.split(".")[1].length : 0;
-  if (decimals > 1) return Math.round(value * 10) / 10;
-  return value;
-}
-
 export default function ResultsDashboard({ result, snippet, fmCode, onReset, onBackToInput, onCompare }) {
   const [copied, setCopied] = useState(false);
   const [checkedActions, setCheckedActions] = useState({});
   const verdictCfg = VERDICT_CONFIG[result.verdict] || VERDICT_CONFIG.ATTENTION;
   const tmsc = result.tmsc;
+  // Animated count-up only kicks in when there's a real number to show
+  // (>= 1 million). Below that we render "Below 1 million" instead, so
+  // the hook still runs but the value isn't displayed.
+  const tmscAnimated = useCountUp(tmsc?.value ?? 0);
   const providedKeys = PARAM_ORDER.filter((k) => result.parameters[k] !== undefined);
   const normalCount = providedKeys.filter((k) => result.parameters[k].status === "NORMAL").length;
   const flaggedCount = providedKeys.length - normalCount;
@@ -196,7 +193,7 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
                 ) : (
                   <>
                     <span className="font-serif text-[clamp(56px,12vw,80px)] font-bold text-white leading-none tabular-nums tracking-tight">
-                      {displayValue(tmsc.value)}
+                      {displayValue(tmscAnimated)}
                     </span>
                     <span className="text-[13px] text-white/35 font-medium">million</span>
                   </>
@@ -232,20 +229,38 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
 
         {/* ── Parameter Cards ── */}
         <section className="mb-14">
-          <div className="flex items-baseline justify-between mb-6">
-            <h2 className="font-serif text-[24px] font-bold text-gray-900 tracking-tight">Your Results</h2>
-            <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">WHO 2021</span>
+          {/* Anchor "WHO 2021" inline with the heading on its own
+              baseline so it reads as a stamp/source, not a floating
+              UI label. Lower opacity, smaller letter-spacing. */}
+          <div className="mb-6 flex items-end gap-3 flex-wrap">
+            <h2 className="font-serif text-[24px] font-bold text-gray-900 tracking-tight leading-none">Your Results</h2>
+            <span className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold leading-none translate-y-[-2px]">
+              measured against WHO 2021
+            </span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {providedKeys.map((key) => {
+          {/* items-start = an expanded card grows down without dragging
+              its row siblings taller. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 items-start">
+            {providedKeys.map((key, i) => {
               const p = result.parameters[key];
               const meta = PARAM_META[key];
+              // Staggered reveal: each card fades up 90ms after the
+              // previous one. The wrapper carries the animation so the
+              // ParameterCard's own card-tonal hover effects stay clean.
+              // Inline style sets the per-index delay; the @keyframes
+              // editorial-fade-up runs on each div independently.
               return (
-                <ParameterCard
-                  key={key} paramKey={key} paramName={meta.label}
-                  value={displayValue(p.value)} unit={meta.unit} whoRange={meta.whoRange}
-                  status={p.status} contextualizingLine={CTX_LINES[key]?.[p.status] || ""}
-                />
+                <div
+                  key={key}
+                  className="animate-editorial opacity-0"
+                  style={{ animationDelay: `${i * 90}ms` }}
+                >
+                  <ParameterCard
+                    paramKey={key} paramName={meta.label}
+                    value={displayValue(p.value)} unit={meta.unit} whoRange={meta.whoRange}
+                    status={p.status} contextualizingLine={CTX_LINES[key]?.[p.status] || ""}
+                  />
+                </div>
               );
             })}
           </div>
