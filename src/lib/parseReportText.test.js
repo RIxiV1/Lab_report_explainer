@@ -248,6 +248,50 @@ Vitality (Eosin-Nigrosin stain) 5.00 % >54`;
     expect(r.results.wbc).toBe(0.3);
   });
 
+  // ── Cross-report contamination guards ────────────────────────────
+  // Indian labs sometimes deliver a packaged report containing CBC,
+  // urinalysis and semen analysis on adjacent pages. The parser must
+  // not pick up haemoglobin, urine specific gravity, or CBC WBC values
+  // as if they were semen-analysis fields.
+
+  it("does NOT capture haemoglobin concentration as sperm count", () => {
+    const text = "Hemoglobin Concentration: 14.5 g/dL\nMCV: 89 fL";
+    const r = parseReportText(text);
+    expect(r.results.spermCount).toBeUndefined();
+  });
+
+  it("does NOT capture urine specific gravity as sperm count", () => {
+    const text = "Urinalysis\nSpecific gravity (density): 1.020\nProtein: Nil";
+    const r = parseReportText(text);
+    expect(r.results.spermCount).toBeUndefined();
+  });
+
+  it("still captures explicit 'Sperm Density' phrasing", () => {
+    const text = "Sperm Density: 45 million/mL";
+    const r = parseReportText(text);
+    expect(r.results.spermCount).toBe(45);
+  });
+
+  it("flags CBC WBC values (thousand/μL) instead of misclassifying as pus cells", () => {
+    const text = "WBC: 7.5 thousand/uL\nRBC: 4.5 million/uL";
+    const r = parseReportText(text);
+    expect(r.results.wbc).toBeUndefined();
+    expect(r.unitWarnings.wbc).toBeDefined();
+    expect(r.unitWarnings.wbc.title).toMatch(/blood-count/i);
+  });
+
+  it("flags CBC WBC values (K/μL) instead of misclassifying as pus cells", () => {
+    const text = "WBC 6.2 K/uL";
+    const r = parseReportText(text);
+    expect(r.results.wbc).toBeUndefined();
+  });
+
+  it("still accepts WBC in correct semen-analysis units (million/mL)", () => {
+    const text = "Pus Cells (WBC): 0.4 million/mL";
+    const r = parseReportText(text);
+    expect(r.results.wbc).toBe(0.4);
+  });
+
   it("extracts Dr Lal PathLabs format correctly", () => {
     const text = `
       Ejaculate Volume 4.00 mL

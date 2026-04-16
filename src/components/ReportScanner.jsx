@@ -53,6 +53,10 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
   const [pastedText, setPastedText] = useState("");
   const fileInputRef = useRef(null);
   const startedAtRef = useRef(0);
+  // Tracks the deferred paste-parse timer so we can cancel it if the
+  // component unmounts mid-delay (avoids "setState on unmounted" warnings
+  // and stale telemetry). Both paste paths reuse this slot.
+  const pasteTimerRef = useRef(null);
 
   const durationSinceStart = () =>
     startedAtRef.current ? Date.now() - startedAtRef.current : null;
@@ -64,6 +68,12 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
     }, STEP_TICK_MS);
     return () => clearInterval(interval);
   }, [status, steps.length]);
+
+  // Cancel any pending paste-parse timer when the scanner unmounts so
+  // the deferred callback can't try to setState on a dead component.
+  useEffect(() => () => {
+    if (pasteTimerRef.current) clearTimeout(pasteTimerRef.current);
+  }, []);
 
   // Try parsing a candidate text; returns the parsed result if any
   // metrics were found, else null.
@@ -167,9 +177,13 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
 
     const fileSize = file.size;
     let pageCount = null;
+    // Held outside the try so the finally can release pdfjs's internal
+    // worker buffers. Without this, repeated uploads accumulate memory.
+    let pdfDoc = null;
 
     try {
       const { pdf, pageContents, totalCharCount } = await loadPdfPages(file);
+      pdfDoc = pdf;
       pageCount = pdf.numPages;
       setCurrentStep(1);
 
@@ -232,6 +246,12 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
         durationMs: durationSinceStart(),
       });
       finishWithError("Couldn't read this PDF. Try uploading a photo of your report, or paste the text below.");
+    } finally {
+      // Release pdfjs's internal worker buffers. Without this, repeated
+      // uploads accumulate memory until the tab eventually OOMs (esp.
+      // on lower-end mobile devices common in the Indian user base).
+      // .destroy() returns a promise but is fire-and-forget here.
+      if (pdfDoc?.destroy) pdfDoc.destroy().catch(() => {});
     }
   };
 
@@ -301,7 +321,8 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
       setSteps(STEPS_TEXT);
       setCurrentStep(0);
       startedAtRef.current = Date.now();
-      setTimeout(() => finishPastedText(text), PASTE_DELAY_MS);
+      clearTimeout(pasteTimerRef.current);
+      pasteTimerRef.current = setTimeout(() => finishPastedText(text), PASTE_DELAY_MS);
     }
   };
 

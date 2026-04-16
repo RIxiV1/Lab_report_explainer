@@ -17,3 +17,19 @@ export function formatDate(date) {
 export function todayLabel() {
   return formatDate(new Date());
 }
+
+// Rounds clinical numbers to one decimal place to suppress OCR
+// artefacts like "7.707" while preserving meaningful precision.
+// Integers pass through untouched. Used for parameter values and the
+// TMSC count-up.
+export function displayValue(value) {
+  if (value === null || value === undefined) return "—";
+  if (typeof value !== "number") {
+    const parsed = parseFloat(value);
+    if (isNaN(parsed)) return value;
+    value = parsed;
+  }
+  if (Number.isInteger(value)) return value;
+  const decimals = String(value).split(".")[1]?.length ?? 0;
+  return decimals > 1 ? Math.round(value * 10) / 10 : value;
+}

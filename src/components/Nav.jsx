@@ -3,8 +3,8 @@ export default function Nav({ children, sticky = true, className = "", onLogoCli
     <div className="flex items-center gap-3">
       <img
         src="/formen-logo.png"
-        alt=""
-        className="h-[28px] w-auto object-contain transition-transform hover:scale-105"
+        alt="ForMen Health"
+        className="h-[32px] w-auto object-contain transition-transform hover:scale-105"
         style={{ filter: 'drop-shadow(0 2px 6px rgba(17,24,82,0.12))' }}
       />
       <div>

@@ -89,7 +89,10 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
   // the hook still runs but the value isn't displayed.
   const tmscAnimated = useCountUp(tmsc?.value ?? 0);
   const providedKeys = PARAM_ORDER.filter((k) => result.parameters[k] !== undefined);
-  const normalCount = providedKeys.filter((k) => result.parameters[k].status === "NORMAL").length;
+  // Optional-chain guards against malformed parameter objects (e.g. an
+  // older saved result missing .status). Better to render "0 normal"
+  // than crash the whole results page.
+  const normalCount = providedKeys.filter((k) => result.parameters[k]?.status === "NORMAL").length;
   const flaggedCount = providedKeys.length - normalCount;
 
   useEffect(() => {

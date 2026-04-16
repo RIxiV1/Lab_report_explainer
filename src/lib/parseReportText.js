@@ -42,12 +42,15 @@ const SANITY = {
 const PARAMS = [
   {
     key: "spermCount",
+    // Bare "concentration" / "density" deliberately removed — they
+    // collide with other lab values (haemoglobin concentration,
+    // urine specific gravity / density) when a CBC or urinalysis
+    // shares the page. Always require an explicit "sperm" qualifier.
     keywords: [
       "total sperm concentration",
       "sperm concentration",
-      "density",
+      "sperm density",
       "sperm count",
-      "concentration",
     ],
   },
   {
@@ -109,6 +112,12 @@ const PARAMS = [
     // show a flagged finding without feeding a mis-unit'd value into the
     // rule engine.
     flagIfNear: /\/\s*hpf|per\s*hpf|high[-\s]*power/i,
+    // CBC reports use thousand/μL (a.k.a. K/μL or /cumm). A normal WBC
+    // count of 7.5 thousand/μL would otherwise look like 7.5 million/mL
+    // (1000x too high) and silently flag the user as having severe
+    // leukocytospermia. Catch the unit and reject the value.
+    rejectIfNear: /\b(?:thousand|k)\s*\/\s*[uµμ]l|cells\s*\/\s*[uµμ]?l|\/\s*cumm|\/\s*mm[\s]?3|x10\s*\^?\s*3\s*\/\s*[uµμ]l/i,
+    rejectReason: "thousand/μL (looks like a CBC count, not semen pus cells in million/mL)",
   },
 ];
 
@@ -117,7 +126,7 @@ const PARAMS = [
 const REJECT_LOOKAHEAD = 40;
 
 function findValue(text, param) {
-  const { key, keywords, guard, fallbackRegex, flagIfNear } = param;
+  const { key, keywords, guard, fallbackRegex, flagIfNear, rejectIfNear, rejectReason } = param;
   const bounds = SANITY[key];
 
   for (const entry of keywords) {
@@ -131,8 +140,13 @@ function findValue(text, param) {
       const value = parseFloat(match[1]);
       if (isNaN(value)) continue;
       if (bounds && (value < bounds.min || value > bounds.max)) continue;
+      const after = text.slice(match.index + match[0].length, match.index + match[0].length + REJECT_LOOKAHEAD);
+      // Hard reject — wrong-unit values that would silently mis-classify
+      // (e.g. CBC WBC in thousand/μL looking like semen pus cells in million/mL).
+      if (rejectIfNear && rejectIfNear.test(after)) {
+        return { value, matched: match[0].trim(), unitMismatch: true, rawUnit: rejectReason, subtype };
+      }
       if (flagIfNear) {
-        const after = text.slice(match.index + match[0].length, match.index + match[0].length + REJECT_LOOKAHEAD);
         if (flagIfNear.test(after)) {
           return { value, matched: match[0].trim(), unitMismatch: true, rawUnit: "/hpf", subtype };
         }
@@ -277,6 +291,16 @@ function buildUnitWarning(paramKey, found) {
       rawUnit: found.rawUnit,
       title: `Pus cells reported as ${found.value} ${found.rawUnit}`,
       message: `Your lab used per-high-power-field, which can't be graded against the million/mL threshold used here. Clinically, 1 or more pus cells per HPF can indicate possible infection — worth showing to your doctor. If your lab also gave a value in million/mL, please enter that manually.`,
+    };
+  }
+  // CBC values that bled into the parser. Tell the user we ignored
+  // the value so they don't think it's missing — and explain why.
+  if (paramKey === "wbc" && found.rawUnit?.startsWith("thousand")) {
+    return {
+      value: found.value,
+      rawUnit: found.rawUnit,
+      title: `WBC value looks like a blood-count reading, not a semen reading`,
+      message: `Your report looks like it includes a blood test alongside the semen analysis. We ignored the WBC line that was in thousand/μL (a CBC unit) because it doesn't apply here. If your semen report has a separate pus-cell count in million/mL, please enter that manually.`,
     };
   }
   return {
