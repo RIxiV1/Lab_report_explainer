@@ -52,7 +52,7 @@ export const narratives = {
     verdictCard:
       "Your sperm shape score is below the range, but count and movement are both healthy. This number is often misunderstood — a low score here is rarely a problem on its own.",
     narrative:
-      "Here's some important context: even in men who have no fertility issues, most sperm have imperfect shapes. The bar is set at just 4%, so 96% can look 'abnormal' and that's still fine. Your count and movement are solid, which matters more. Eating well, staying active, and reducing stress are the best ways to support shape over time. Share this with your partner — the context matters more than the number itself.",
+      "Here's some important context: even in men who have no fertility issues, most sperm have imperfect shapes. The bar is set at just 4%, so 96% can look 'abnormal' and that's still fine. One thing worth saying clearly — shape scoring under the microscope does NOT predict health problems in a future baby. Your count and movement are solid, which matters more. Eating well, staying active, and reducing stress are the best ways to support shape over time.",
     actions: [
       { timeline: "Immediate", action: "Add 5+ servings of colorful fruits and vegetables daily for antioxidant support", fertiQ: false },
       { timeline: "30 Days", action: "Start a daily antioxidant-rich supplement to target the oxidative damage linked to morphology changes", fertiQ: true },
@@ -140,7 +140,7 @@ export const narratives = {
     verdictCard:
       "Sperm shape is the most misread number on a semen report. Even healthy, fertile men often score in the low single digits. A low score alone doesn't predict your chances, and it responds well to diet and lifestyle changes.",
     narrative:
-      "The shape scoring system is strict on purpose — even healthy men regularly score low. A very low number is worth looking into, but on its own it doesn't tell us much about your chances. The best thing you can do is eat well, avoid toxins, and consider an antioxidant-focused nutrition plan, then retest after 90 days.",
+      "The shape scoring system is strict on purpose — even healthy men regularly score low. A very low number is worth looking into, but on its own it doesn't tell us much about your chances. One important reassurance: a low shape score does NOT mean a baby conceived from this sperm will have any health or developmental issues — this metric looks at how sperm appear under a microscope, not at the genes they carry. The best thing you can do is eat well, avoid toxins, and consider an antioxidant-focused nutrition plan, then retest after 90 days.",
     actions: [
       { timeline: "Immediate", action: "Consult a reproductive urologist to rule out contributing factors like varicocele or infection", fertiQ: false },
       { timeline: "30 Days", action: "Adopt a strict antioxidant-rich diet — berries, leafy greens, nuts, fish — and add a daily fertility supplement", fertiQ: true },

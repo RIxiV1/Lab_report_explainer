@@ -4,7 +4,7 @@ import { STATUS_CONFIG } from "../lib/constants";
 const DEEPER = {
   spermCount: "Sperm concentration tells us how many sperm are available per millilitre. WHO defines ≥16 million/mL as normal.",
   motility: "Motility measures the percentage of sperm that are moving. Total motility ≥42% is considered normal by WHO 2021 standards.",
-  morphology: "Morphology uses Kruger strict criteria. Only 4% need to be 'textbook perfect' for a normal classification.",
+  morphology: "Morphology uses Kruger strict criteria — only 4% need to be 'textbook perfect' for a normal classification. Important: this measures how sperm look under a microscope as a rough fertility marker. It does NOT predict whether a baby conceived from this sperm will have any health or developmental issues.",
   volume: "Semen volume reflects secretions from the seminal vesicles and prostate.",
   pH: "pH measures the acidity of semen. Semen is naturally slightly alkaline (≥7.2) to protect sperm.",
   wbc: "White blood cells (pus cells) in semen point to inflammation or infection if elevated (≥1 million/mL).",
@@ -70,7 +70,7 @@ export default memo(function ParameterCard({ paramKey, paramName, value, unit, w
 
         <div className="flex items-baseline gap-1.5 mb-2">
           <span className="font-serif text-[38px] text-brand-900 font-bold leading-none tracking-tight">{value}</span>
-          {unit && <span className="text-xs font-semibold text-gray-400 ml-1">{unit}</span>}
+          {unit && <span className="text-xs font-semibold text-gray-500 ml-1">{unit}</span>}
         </div>
 
         <p className="text-[13px] text-gray-600 leading-relaxed mb-6 flex-1">{contextualizingLine || "Everything looks good here."}</p>

@@ -222,7 +222,7 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
         <section className="mb-14">
           <div className="flex items-baseline justify-between mb-6">
             <h3 className="font-serif text-[24px] font-bold text-gray-900 tracking-tight">Your Results</h3>
-            <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">WHO 2021</span>
+            <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">WHO 2021</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {providedKeys.map((key) => {
@@ -331,16 +331,16 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
           <h3 className="font-serif text-[24px] font-bold text-gray-900 tracking-tight mb-5">While You Wait</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-[1px] bg-[#E3E9EA]">
             <div className="bg-white p-5">
-              <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-3">Diet</p>
+              <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-3">Diet</p>
               {FOOD_TIPS.map((tip, i) => (
                 <p key={i} className="text-[12px] text-gray-700 mb-1.5 last:mb-0">
                   <span className="font-semibold text-gray-900">{tip.item}</span>
-                  <span className="text-gray-400"> — {tip.why}</span>
+                  <span className="text-gray-500"> — {tip.why}</span>
                 </p>
               ))}
             </div>
             <div className="bg-white p-5">
-              <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-3">Lifestyle</p>
+              <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-3">Lifestyle</p>
               {LIFESTYLE_TIPS.map((tip, i) => (
                 <p key={i} className="text-[12px] text-gray-600 mb-1.5 last:mb-0">{tip}</p>
               ))}
@@ -351,7 +351,7 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
         {/* ── Footer ── */}
         <div className="flex flex-col md:flex-row items-center justify-between py-5 gap-3" style={{ borderTop: '1px solid rgba(198,197,210,0.15)' }}>
           <div className="text-center md:text-left">
-            <p className="text-[10px] text-gray-400 uppercase tracking-wide">FM Code</p>
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide">FM Code</p>
             <p className="font-mono text-base font-bold text-gray-800 tracking-widest">{fmCode}</p>
           </div>
           <div className="flex items-center gap-3 text-[11px]">
@@ -359,7 +359,7 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
             <span className="text-gray-200">·</span>
             <button onClick={onCompare} className="font-semibold text-brand-600 hover:text-brand-800 cursor-pointer bg-transparent border-none transition-colors">Compare</button>
             <span className="text-gray-200">·</span>
-            <button onClick={onReset} className="font-semibold text-gray-400 hover:text-gray-700 cursor-pointer bg-transparent border-none transition-colors">Reset</button>
+            <button onClick={onReset} className="font-semibold text-gray-500 hover:text-gray-700 cursor-pointer bg-transparent border-none transition-colors">Reset</button>
           </div>
         </div>
       </div>

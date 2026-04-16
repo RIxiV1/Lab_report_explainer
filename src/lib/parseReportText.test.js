@@ -92,6 +92,30 @@ describe("parseReportText", () => {
     expect(r.results.motility).toBeUndefined();
   });
 
+  it("rejects motility if motility + immotile > 105% (impossible sum)", () => {
+    // Scenario: OCR scrambled a table and the parser grabbed the
+    // immotile value as motility. Total motile 60 + immotile 60 = 120 → reject.
+    const text = "Total motile (a+b+c) 60 %\nImmotile (d) 60 %";
+    const r = parseReportText(text);
+    expect(r.results.motility).toBeUndefined();
+    expect(r.unitWarnings.motility).toBeDefined();
+    expect(r.unitWarnings.motility.title).toMatch(/add up/i);
+  });
+
+  it("accepts motility when motility + immotile sums to ~100 (valid)", () => {
+    const text = "Total motile (a+b+c) 55 %\nImmotile (d) 40 %";
+    const r = parseReportText(text);
+    expect(r.results.motility).toBe(55);
+    expect(r.unitWarnings.motility).toBeUndefined();
+  });
+
+  it("tolerates small rounding when immotile is absent", () => {
+    // Sanity check only fires if BOTH values are present.
+    const text = "Total motile (a+b+c) 55 %";
+    const r = parseReportText(text);
+    expect(r.results.motility).toBe(55);
+  });
+
   it("does not merge pH value with nearby unrelated digits (regression: 7.707 bug)", () => {
     // Previously normalize() would merge "7.5" and "7171001" (from CAP
     // accreditation footer) into "7.57171001" or similar, yielding

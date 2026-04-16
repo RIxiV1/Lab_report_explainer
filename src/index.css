@@ -18,6 +18,23 @@
     color: #161d1e;
   }
 
+  /* ── Keyboard focus indicators ── */
+  /* :focus-visible only fires for keyboard navigation, never for mouse
+     clicks — so the design isn't disrupted for pointer users while
+     keyboard users get a clear, high-contrast indicator. */
+  :focus { outline: none; }
+  :focus-visible {
+    outline: 2px solid #36458E;
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  /* Inputs already have a visual treatment; reinforce with a tinted ring */
+  input:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid #36458E;
+    outline-offset: 0;
+  }
+
   input[type="number"]::-webkit-inner-spin-button,
   input[type="number"]::-webkit-outer-spin-button {
     -webkit-appearance: none;

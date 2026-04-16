@@ -2,6 +2,13 @@ import { useState, useRef, useEffect } from "react";
 import { parseReportText } from "../lib/parseReportText";
 import { PARAM_META, PARAM_ORDER } from "../lib/constants";
 import { logParseAttempt } from "../lib/telemetry";
+import {
+  loadPdfPages,
+  buildPdfTextCandidates,
+  runPdfOcr,
+  runImageOcr,
+  MIN_USABLE_TEXT_LENGTH,
+} from "../lib/pdfExtract";
 
 const STEPS_TEXT = [
   "Reading document locally...",
@@ -28,98 +35,11 @@ const STEPS_IMAGE = [
 
 const STEP_TICK_MS = 800;
 const PASTE_DELAY_MS = 300;
-const OCR_MAX_PAGES = 3;
-const PDF_RENDER_SCALE = 2.5;
-const MIN_USABLE_TEXT_LENGTH = 50;
 
-// ── Lazy loaders for heavy dependencies ─────────────────────────────
-// pdfjs-dist (~1MB) and tesseract.js are only loaded when the user
-// actually drops a file. The dropzone itself stays lightweight.
-let pdfjsPromise = null;
-function loadPdfjs() {
-  if (!pdfjsPromise) {
-    pdfjsPromise = import("pdfjs-dist").then((mod) => {
-      const pdfjsLib = mod.default || mod;
-      if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-        try {
-          pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-            "pdfjs-dist/build/pdf.worker.min.js",
-            import.meta.url
-          ).href;
-        } catch {
-          pdfjsLib.GlobalWorkerOptions.workerSrc =
-            `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-        }
-      }
-      return pdfjsLib;
-    });
-  }
-  return pdfjsPromise;
-}
-
-let tesseractPromise = null;
-function loadTesseract() {
-  if (!tesseractPromise) {
-    tesseractPromise = import("tesseract.js").then((mod) => mod.createWorker);
-  }
-  return tesseractPromise;
-}
-
-// Lab PDFs vary wildly. We try multiple reconstruction strategies and
-// pick whichever gives the parser the most matches. Empirically, Dr Lal
-// PathLabs and Metropolis use table layouts where content-stream order
-// != reading order — stream-join yields garbage, spatial grouping works.
-// Other labs are the opposite. Trying both is cheap and robust.
-
-// Strategy 1: group items by Y coordinate, sort left-to-right within a
-// line. Handles tables and multi-column layouts.
-function reconstructByPosition(textContent, yTolerance = 5) {
-  const lines = [];
-  for (const item of textContent.items) {
-    if (!item.str || !item.str.trim()) continue;
-    const x = item.transform?.[4] ?? 0;
-    const y = item.transform?.[5] ?? 0;
-    let line = lines.find((l) => Math.abs(l.y - y) < yTolerance);
-    if (!line) {
-      line = { y, items: [] };
-      lines.push(line);
-    }
-    line.items.push({ x, str: item.str });
-  }
-  lines.sort((a, b) => b.y - a.y); // PDF Y increases upward → reverse
-  for (const line of lines) line.items.sort((a, b) => a.x - b.x);
-  return lines.map((l) => l.items.map((i) => i.str).join(" ")).join("\n");
-}
-
-// Strategy 2: naive stream-order join. Works for simple linear PDFs.
-function reconstructByStream(textContent) {
-  return textContent.items.map((i) => i.str || "").join(" ");
-}
-
-// Strategy 3: stream order but with newlines when pdfjs signals EOL
-// (modern pdfjs sets hasEOL on the last item of each line). Preserves
-// line breaks without needing spatial math.
-function reconstructByEOL(textContent) {
-  let result = "";
-  for (const item of textContent.items) {
-    result += item.str || "";
-    if (item.hasEOL) result += "\n";
-    else result += " ";
-  }
-  return result;
-}
-
-// Render a PDF page to a PNG data URL at high DPI for OCR accuracy.
-async function renderPageToImage(pdf, pageNum) {
-  const page = await pdf.getPage(pageNum);
-  const viewport = page.getViewport({ scale: PDF_RENDER_SCALE });
-  const canvas = document.createElement("canvas");
-  canvas.width = viewport.width;
-  canvas.height = viewport.height;
-  const ctx = canvas.getContext("2d");
-  await page.render({ canvasContext: ctx, viewport }).promise;
-  return canvas.toDataURL("image/png");
-}
+// Computes the fields that the parser did NOT extract successfully.
+// Used in telemetry entries.
+const missingFieldsFrom = (parsed) =>
+  parsed ? PARAM_ORDER.filter((k) => !(k in parsed.results)) : PARAM_ORDER;
 
 export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
   const [isHovering, setIsHovering] = useState(false);
@@ -169,14 +89,13 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
     setMessage(msg);
   };
 
-  const finishWithText = (text) => {
-    const parsed = tryParse(text);
+  const finishParsedOrError = (parsed, errorMsg) => {
     if (parsed) finishWithResult(parsed);
-    else finishWithError("Could not find semen analysis metrics. Try pasting the report text or use manual entry.");
+    else finishWithError(errorMsg);
   };
 
-  // Wraps finishWithText and records a telemetry entry for paste-sourced
-  // text. PDF and OCR paths log their own entries directly.
+  // Records a telemetry entry for paste-sourced text.
+  // PDF and OCR paths log their own entries directly.
   const finishPastedText = (text) => {
     const parsed = tryParse(text);
     logParseAttempt({
@@ -184,14 +103,16 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
       strategy: "paste",
       outcome: parsed ? "success" : "paste-no-matches",
       foundFields: parsed ? Object.keys(parsed.results) : [],
-      missingFields: parsed ? PARAM_ORDER.filter((k) => !(k in parsed.results)) : PARAM_ORDER,
+      missingFields: missingFieldsFrom(parsed),
       unitWarnings: parsed ? Object.keys(parsed.unitWarnings || {}) : [],
       subtypes: parsed?.subtypes || {},
       pastedLength: text.length,
       durationMs: durationSinceStart(),
     });
-    if (parsed) finishWithResult(parsed);
-    else finishWithError("Could not find semen analysis metrics. Try pasting the report text or use manual entry.");
+    finishParsedOrError(
+      parsed,
+      "Could not find semen analysis metrics. Try pasting the report text or use manual entry."
+    );
   };
 
   const runOCROnPdf = async (pdf, meta = {}) => {
@@ -199,38 +120,30 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
     setCurrentStep(2);
 
     try {
-      const createWorker = await loadTesseract();
-      const worker = await createWorker("eng");
-      let fullText = "";
-
-      const pagesToScan = Math.min(pdf.numPages, OCR_MAX_PAGES);
-      for (let i = 1; i <= pagesToScan; i++) {
-        setCurrentStep(3);
-        const imgUrl = await renderPageToImage(pdf, i);
-        const { data } = await worker.recognize(imgUrl);
-        fullText += data.text + "\n";
-      }
-
-      await worker.terminate();
+      const { text, pagesScanned } = await runPdfOcr(pdf, {
+        onPageStart: () => setCurrentStep(3),
+      });
       setCurrentStep(4);
 
-      const parsed = tryParse(fullText);
+      const parsed = tryParse(text);
       logParseAttempt({
         source: "pdf-ocr",
         strategy: "ocr",
         outcome: parsed ? "success" : "ocr-no-matches",
         foundFields: parsed ? Object.keys(parsed.results) : [],
-        missingFields: parsed ? PARAM_ORDER.filter((k) => !(k in parsed.results)) : PARAM_ORDER,
+        missingFields: missingFieldsFrom(parsed),
         unitWarnings: parsed ? Object.keys(parsed.unitWarnings || {}) : [],
         subtypes: parsed?.subtypes || {},
-        pagesScanned: pagesToScan,
+        pagesScanned,
         fileSize: meta.fileSize,
         pageCount: meta.pageCount,
-        ocrTextLength: fullText.length,
+        ocrTextLength: text.length,
         durationMs: durationSinceStart(),
       });
-      if (parsed) finishWithResult(parsed);
-      else finishWithError("Could not find semen analysis metrics. Try pasting the report text or use manual entry.");
+      finishParsedOrError(
+        parsed,
+        "Could not find semen analysis metrics. Try pasting the report text or use manual entry."
+      );
     } catch (err) {
       console.error("PDF OCR failed:", err);
       logParseAttempt({
@@ -255,33 +168,15 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
     let pageCount = null;
 
     try {
-      const pdfjsLib = await loadPdfjs();
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const { pdf, pageContents, totalCharCount } = await loadPdfPages(file);
       pageCount = pdf.numPages;
-
       setCurrentStep(1);
 
-      // Collect all pages' textContent once, then try multiple
-      // reconstruction strategies on the same data.
-      const pageContents = [];
-      let totalCharCount = 0;
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const tc = await page.getTextContent();
-        pageContents.push(tc);
-        totalCharCount += tc.items.reduce((n, it) => n + (it.str?.length || 0), 0);
-      }
-
-      // If the text layer is basically empty, skip straight to OCR
+      // Empty text layer → straight to OCR
       if (totalCharCount < MIN_USABLE_TEXT_LENGTH) {
         logParseAttempt({
-          source: "pdf",
-          strategy: null,
-          outcome: "text-layer-empty",
-          fileSize,
-          pageCount,
-          totalCharCount,
+          source: "pdf", strategy: null, outcome: "text-layer-empty",
+          fileSize, pageCount, totalCharCount,
           durationMs: durationSinceStart(),
           note: "falling through to OCR",
         });
@@ -289,56 +184,40 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
         return;
       }
 
-      // Try each strategy; pick the one with the most parser matches.
-      // Track which strategy won for telemetry.
-      const strategies = [
-        { name: "position", text: pageContents.map((tc) => reconstructByPosition(tc)).join("\n") },
-        { name: "eol",      text: pageContents.map((tc) => reconstructByEOL(tc)).join("\n") },
-        { name: "stream",   text: pageContents.map((tc) => reconstructByStream(tc)).join("\n") },
-      ];
-
+      // Try each reconstruction strategy; pick the one with the most
+      // parser matches. Track scores for telemetry.
+      const candidates = buildPdfTextCandidates(pageContents);
       let best = null;
       let bestStrategy = null;
       const strategyScores = {};
-      for (const s of strategies) {
-        const parsed = tryParse(s.text);
-        strategyScores[s.name] = parsed?.foundCount ?? 0;
+      for (const c of candidates) {
+        const parsed = tryParse(c.text);
+        strategyScores[c.name] = parsed?.foundCount ?? 0;
         if (parsed && (!best || parsed.foundCount > best.foundCount)) {
           best = parsed;
-          bestStrategy = s.name;
+          bestStrategy = c.name;
         }
       }
 
       if (best) {
         setCurrentStep(2);
         logParseAttempt({
-          source: "pdf",
-          strategy: bestStrategy,
-          outcome: "success",
+          source: "pdf", strategy: bestStrategy, outcome: "success",
           foundFields: Object.keys(best.results),
-          missingFields: PARAM_ORDER.filter((k) => !(k in best.results)),
+          missingFields: missingFieldsFrom(best),
           unitWarnings: Object.keys(best.unitWarnings || {}),
           subtypes: best.subtypes || {},
-          strategyScores,
-          fileSize,
-          pageCount,
-          totalCharCount,
+          strategyScores, fileSize, pageCount, totalCharCount,
           durationMs: durationSinceStart(),
         });
         finishWithResult(best);
         return;
       }
 
-      // Text layer exists but nothing parses — likely a rendered-image
-      // PDF with junk text annotations. Fall back to OCR.
+      // Text layer present but nothing parses — fall through to OCR
       logParseAttempt({
-        source: "pdf",
-        strategy: null,
-        outcome: "text-parsed-no-matches",
-        strategyScores,
-        fileSize,
-        pageCount,
-        totalCharCount,
+        source: "pdf", strategy: null, outcome: "text-parsed-no-matches",
+        strategyScores, fileSize, pageCount, totalCharCount,
         durationMs: durationSinceStart(),
         note: "falling through to OCR",
       });
@@ -346,11 +225,9 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
     } catch (err) {
       console.error("PDF extraction failed:", err);
       logParseAttempt({
-        source: "pdf",
-        outcome: "error",
+        source: "pdf", outcome: "error",
         errorMessage: String(err?.message || err),
-        fileSize,
-        pageCount,
+        fileSize, pageCount,
         durationMs: durationSinceStart(),
       });
       finishWithError("Could not read this PDF. Try uploading an image or pasting the report text instead.");
@@ -366,33 +243,29 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
     const fileSize = file.size;
 
     try {
-      const createWorker = await loadTesseract();
-      const worker = await createWorker("eng");
       setCurrentStep(1);
-      const { data } = await worker.recognize(file);
-      await worker.terminate();
+      const { text } = await runImageOcr(file);
       setCurrentStep(2);
 
-      const parsed = tryParse(data.text);
+      const parsed = tryParse(text);
       logParseAttempt({
-        source: "image-ocr",
-        strategy: "ocr",
+        source: "image-ocr", strategy: "ocr",
         outcome: parsed ? "success" : "ocr-no-matches",
         foundFields: parsed ? Object.keys(parsed.results) : [],
-        missingFields: parsed ? PARAM_ORDER.filter((k) => !(k in parsed.results)) : PARAM_ORDER,
+        missingFields: missingFieldsFrom(parsed),
         unitWarnings: parsed ? Object.keys(parsed.unitWarnings || {}) : [],
         subtypes: parsed?.subtypes || {},
-        fileSize,
-        ocrTextLength: data.text.length,
+        fileSize, ocrTextLength: text.length,
         durationMs: durationSinceStart(),
       });
-      if (parsed) finishWithResult(parsed);
-      else finishWithError("Could not find semen analysis metrics. Try pasting the report text or use manual entry.");
+      finishParsedOrError(
+        parsed,
+        "Could not find semen analysis metrics. Try pasting the report text or use manual entry."
+      );
     } catch (err) {
       console.error("Image OCR failed:", err);
       logParseAttempt({
-        source: "image-ocr",
-        outcome: "error",
+        source: "image-ocr", outcome: "error",
         errorMessage: String(err?.message || err),
         fileSize,
         durationMs: durationSinceStart(),
@@ -463,7 +336,7 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
             <div className="w-8 h-8 flex items-center justify-center text-sm font-bold text-white" style={{ background: 'linear-gradient(135deg, #8BB992, #659F73)', boxShadow: '0 4px 12px rgba(101,159,115,0.3)' }}>✓</div>
             <div>
               <p className="text-[14px] font-semibold text-gray-900">{keys.length} metrics extracted</p>
-              <p className="text-[11px] text-gray-400">Processed locally — your file never left this device</p>
+              <p className="text-[11px] text-gray-500">Processed locally — your file never left this device</p>
             </div>
           </div>
 
@@ -473,10 +346,10 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
               if (!meta) return null;
               return (
                 <div key={key} className="bg-[#EFF5F6] p-4">
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">{meta.label}</p>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">{meta.label}</p>
                   <p className="font-serif text-[24px] font-bold text-gray-900 tabular-nums">
                     {extractedData[key]}
-                    {meta.unit && <span className="text-[12px] text-gray-400 font-sans font-medium ml-1">{meta.unit}</span>}
+                    {meta.unit && <span className="text-[12px] text-gray-500 font-sans font-medium ml-1">{meta.unit}</span>}
                   </p>
                 </div>
               );
@@ -489,13 +362,10 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
             return (
               <div key={key} role="alert" className="mb-6 p-4 bg-yellow-50 border-l-[3px] border-yellow-500">
                 <p className="text-[12px] font-semibold text-gray-900 mb-1">
-                  Clinical note: {meta.label} reported as {w.value} {w.rawUnit}
+                  {w.title || `Note on ${meta.label}`}
                 </p>
                 <p className="text-[12px] text-gray-700 leading-relaxed">
-                  Your lab reported this in <strong>{w.rawUnit}</strong>, which can't be graded against the
-                  {" "}{meta.unit} threshold used here. For pus cells, values of <strong>1 or more per HPF</strong>
-                  {" "}can indicate possible infection (leukocytospermia) and are worth showing to your doctor.
-                  If your lab provided a value in {meta.unit}, please enter it manually.
+                  {w.message}
                 </p>
               </div>
             );
@@ -506,7 +376,7 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
           </button>
 
           <div className="flex justify-between mt-4">
-            <button onClick={handleReset} className="text-[11px] text-gray-400 hover:text-gray-600 cursor-pointer bg-transparent border-none uppercase tracking-wide font-semibold transition-colors">
+            <button onClick={handleReset} className="text-[11px] text-gray-500 hover:text-gray-600 cursor-pointer bg-transparent border-none uppercase tracking-wide font-semibold transition-colors">
               Upload different file
             </button>
             <button onClick={() => onExtracted(extractedData, extractedMeta)} className="text-[11px] text-brand-500 hover:text-brand-700 cursor-pointer bg-transparent border-none uppercase tracking-wide font-semibold transition-colors">
@@ -541,12 +411,12 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
                     >
                       {i < currentStep ? "✓" : i + 1}
                     </span>
-                    <span className={i <= currentStep ? "text-gray-700" : "text-gray-400"}>{step}</span>
+                    <span className={i <= currentStep ? "text-gray-700" : "text-gray-500"}>{step}</span>
                   </div>
                 ))}
               </div>
             </div>
-            <p className="text-[10px] text-gray-400 uppercase tracking-wide">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide">
               Everything stays on this device — nothing is uploaded
             </p>
           </div>
@@ -638,7 +508,7 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8BB992" strokeWidth={2}>
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
             </svg>
-            <span className="text-[11px] text-gray-400">File never leaves your device. Processed locally in your browser.</span>
+            <span className="text-[11px] text-gray-500">File never leaves your device. Processed locally in your browser.</span>
           </div>
         </div>
 

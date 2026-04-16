@@ -115,6 +115,21 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
     onFMCodeLookup(trimmed);
   }
 
+  // Wipes all form state and the persisted draft so the next entry
+  // starts truly blank. Useful when re-testing with new values — the
+  // localStorage draft would otherwise re-prefill old numbers.
+  function handleClearAll() {
+    setValues({});
+    setErrors({});
+    setTouched({});
+    setAge("");
+    setMonthsTrying("");
+    setAgeError("");
+    setMonthsError("");
+    setExtractedMeta({ subtypes: {}, unitWarnings: {} });
+    try { localStorage.removeItem(DRAFT_KEY); } catch {}
+  }
+
   // Remembers scan metadata across mode switches:
   // - subtypes: which motility variant was matched (total vs progressive)
   //   so the classifier uses the right WHO threshold (42% vs 30%).
@@ -155,7 +170,7 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
               type="button"
               aria-label={`About ${field.label}`}
               onClick={() => setActiveTooltip(activeTooltip === field.key ? null : field.key)}
-              className="text-[10px] text-gray-400 hover:text-brand-500 cursor-pointer bg-transparent border-none uppercase tracking-wide font-semibold transition-colors"
+              className="text-[10px] text-gray-500 hover:text-brand-500 cursor-pointer bg-transparent border-none uppercase tracking-wide font-semibold transition-colors"
             >
               Info
             </button>
@@ -182,7 +197,7 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
             aria-invalid={!!hasError}
           />
           {field.unit && (
-            <span className="absolute right-0 top-1/2 -translate-y-1/2 text-[11px] text-gray-400 font-medium pointer-events-none">
+            <span className="absolute right-0 top-1/2 -translate-y-1/2 text-[11px] text-gray-500 font-medium pointer-events-none">
               {field.unit}
             </span>
           )}
@@ -198,7 +213,7 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
         />
 
         <p
-          className={`text-[11px] mt-2 ${hasError ? "text-orange-600 font-medium" : "text-gray-400"}`}
+          className={`text-[11px] mt-2 ${hasError ? "text-orange-600 font-medium" : "text-gray-500"}`}
           role={hasError ? "alert" : undefined}
           aria-live={hasError ? "polite" : undefined}
         >
@@ -207,16 +222,16 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
 
         {unitWarning && !hasError && (
           <div role="note" className="mt-2 p-3 bg-yellow-50 border-l-[3px] border-yellow-500">
+            {unitWarning.title && (
+              <p className="text-[11px] font-semibold text-gray-900 mb-1">{unitWarning.title}</p>
+            )}
             <p className="text-[11px] text-gray-800 leading-relaxed">
-              <strong>Note:</strong> Your report listed this as <strong>{unitWarning.value} {unitWarning.rawUnit}</strong>,
-              which isn't comparable to the {field.unit} threshold used here.
-              Please ask your doctor or lab for the value in {field.unit} before entering it.
-              For pus cells, even 1 per HPF can indicate possible infection.
+              {unitWarning.message}
             </p>
           </div>
         )}
         {field.extraNote && !hasError && (
-          <p className="text-[11px] text-gray-400 mt-0.5 italic">{field.extraNote}</p>
+          <p className="text-[11px] text-gray-500 mt-0.5 italic">{field.extraNote}</p>
         )}
       </div>
     );
@@ -241,7 +256,7 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
           </p>
           <div className="flex items-center gap-2 mt-6">
             <div className="w-1.5 h-1.5 bg-wellness-500" style={{ boxShadow: '0 0 6px rgba(139,185,146,0.5)' }} />
-            <span className="text-[11px] text-gray-400 uppercase tracking-wide">
+            <span className="text-[11px] text-gray-500 uppercase tracking-wide">
               Analysed in your browser · stored only on this device
             </span>
           </div>
@@ -290,7 +305,7 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
         ) : (
           <div className="animate-editorial">
             <form onSubmit={handleSubmit} noValidate>
-              {/* Progress */}
+              {/* Progress + clear */}
               <div className="flex items-center gap-3 mb-8">
                 <div className="flex-1 h-[2px] bg-[#E3E9EA] overflow-hidden">
                   <div
@@ -306,6 +321,15 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
                 <span className="label-clinical">
                   {filledRequired} / {REQUIRED_FIELDS.length}
                 </span>
+                {filledRequired > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearAll}
+                    className="text-[10px] text-gray-500 hover:text-orange-600 cursor-pointer bg-transparent border-none uppercase tracking-wide font-semibold transition-colors"
+                  >
+                    Clear all
+                  </button>
+                )}
               </div>
 
               {/* Fields — tonal gap between items */}
@@ -322,7 +346,7 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
                     { id: "monthsTrying", label: "Months TTC", unit: "months", value: monthsTrying, setter: setMonthsTrying, error: monthsError, errSetter: setMonthsError },
                   ].map((f) => (
                     <div key={f.id}>
-                      <label htmlFor={f.id} className="text-[10px] text-gray-400 uppercase tracking-wide block mb-2">{f.label}</label>
+                      <label htmlFor={f.id} className="text-[10px] text-gray-500 uppercase tracking-wide block mb-2">{f.label}</label>
                       <div className="relative">
                         <input
                           id={f.id}
@@ -335,7 +359,7 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
                           style={{ paddingRight: 44 }}
                           aria-invalid={!!f.error}
                         />
-                        <span className="absolute right-0 top-1/2 -translate-y-1/2 text-[11px] text-gray-400">{f.unit}</span>
+                        <span className="absolute right-0 top-1/2 -translate-y-1/2 text-[11px] text-gray-500">{f.unit}</span>
                       </div>
                       <div
                         className="h-[2px] mt-1"

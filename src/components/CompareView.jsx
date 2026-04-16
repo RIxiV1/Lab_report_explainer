@@ -6,12 +6,12 @@ import Nav from "./Nav";
 function getDelta(oldVal, newVal, higherBetter) {
   if (oldVal == null || newVal == null) return null;
   const diff = newVal - oldVal;
-  if (diff === 0) return { label: "No change", color: "text-gray-400" };
+  if (diff === 0) return { label: "No change", color: "text-gray-500" };
   const arrow = diff > 0 ? "↑" : "↓";
   const label = oldVal !== 0
     ? `${arrow} ${Math.abs((diff / oldVal) * 100).toFixed(0)}%`
     : `${arrow} ${Math.abs(diff).toFixed(1)}`; // fall back to absolute delta when pct is undefined
-  let color = "text-gray-400";
+  let color = "text-gray-500";
   if (higherBetter === true) color = diff > 0 ? "text-green-700" : "text-red-700";
   else if (higherBetter === false) color = diff < 0 ? "text-green-700" : "text-red-700";
   return { label, color };
@@ -142,7 +142,7 @@ export default function CompareView({ onBack, onLogoClick, initialCode }) {
                     <div className="flex justify-between items-center mb-4">
                       <div>
                         <div className="text-sm font-bold text-gray-900">{meta.label}</div>
-                        {meta.unit && <div className="text-[11px] text-gray-400">{meta.unit}</div>}
+                        {meta.unit && <div className="text-[11px] text-gray-500">{meta.unit}</div>}
                       </div>
                       {delta && (
                         <span className={`text-[15px] font-bold ${delta.color}`}>{delta.label}</span>
@@ -151,7 +151,7 @@ export default function CompareView({ onBack, onLogoClick, initialCode }) {
 
                     <div className="flex gap-[1px] bg-[#E3E9EA]">
                       <div className="flex-1 bg-[#EFF5F6] p-3 text-center">
-                        <div className="text-[10px] text-gray-400 mb-1 uppercase tracking-wide">Before</div>
+                        <div className="text-[10px] text-gray-500 mb-1 uppercase tracking-wide">Before</div>
                         <div className="font-serif text-xl font-bold text-gray-900">{pA.value}</div>
                         <div className="mt-2">
                           <span className={`text-[10px] font-semibold ${cfgA.badgeBg} ${cfgA.badgeText} px-2 py-0.5`}>
@@ -161,7 +161,7 @@ export default function CompareView({ onBack, onLogoClick, initialCode }) {
                       </div>
                       <div className="flex items-center text-gray-300 px-2">&rarr;</div>
                       <div className="flex-1 bg-[#EFF5F6] p-3 text-center">
-                        <div className="text-[10px] text-gray-400 mb-1 uppercase tracking-wide">After</div>
+                        <div className="text-[10px] text-gray-500 mb-1 uppercase tracking-wide">After</div>
                         <div className="font-serif text-xl font-bold text-gray-900">{pB.value}</div>
                         <div className="mt-2">
                           <span className={`text-[10px] font-semibold ${cfgB.badgeBg} ${cfgB.badgeText} px-2 py-0.5`}>

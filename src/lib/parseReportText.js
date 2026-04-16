@@ -155,12 +155,30 @@ function findValue(text, param) {
   return null;
 }
 
+// Extracts an immotile percentage if the report lists one (e.g.
+// "Immotile (d) 40%"). Used only for cross-validation, NOT returned
+// as a user-facing field.
+const IMMOTILE_REGEX = /\bimmotile\b[^\d\n]{0,60}?([\d.]+)/i;
+
+function findImmotile(text) {
+  const m = text.match(IMMOTILE_REGEX);
+  if (!m) return null;
+  const v = parseFloat(m[1]);
+  if (isNaN(v) || v < 0 || v > 100) return null;
+  return v;
+}
+
+// Tolerance for motility+immotile summing to 100. Rounding across lab
+// reports (e.g. 55 + 40 = 95) is normal; anything above 105 is an
+// impossible sum and means one of the values is misread.
+const MOTILITY_SUM_TOLERANCE = 5;
+
 export function parseReportText(text) {
   const normalized = normalize(text);
   const results = {};
   const matched = {};
-  const subtypes = {}; // e.g. { motility: "total" | "progressive" }
-  const unitWarnings = {};
+  const subtypes = {};
+  const warnings = {};
 
   for (const param of PARAMS) {
     const found = findValue(normalized, param);
@@ -168,9 +186,31 @@ export function parseReportText(text) {
     matched[param.key] = found.matched;
     if (found.subtype) subtypes[param.key] = found.subtype;
     if (found.unitMismatch) {
-      unitWarnings[param.key] = { value: found.value, rawUnit: found.rawUnit };
+      warnings[param.key] = buildUnitWarning(param.key, found);
     } else {
       results[param.key] = found.value;
+    }
+  }
+
+  // ── Cross-validation: motility + immotile should sum to ~100 ──────
+  // If we extracted a motility value and the report also has an
+  // "Immotile" row, confirm they aren't contradictory. OCR scrambles on
+  // Indian lab tables can make the parser grab the immotile value by
+  // mistake — in which case the sum exceeds 100%, which is physiologically
+  // impossible. Drop the motility value and surface a warning.
+  if (results.motility !== undefined) {
+    const immotile = findImmotile(normalized);
+    if (immotile !== null) {
+      const sum = results.motility + immotile;
+      if (sum > 100 + MOTILITY_SUM_TOLERANCE) {
+        warnings.motility = {
+          value: results.motility,
+          title: "Motility values didn't add up",
+          message: `Your report's motility (${results.motility}%) and immotile (${immotile}%) sum to ${sum}%, which isn't possible. This usually means the parser picked up the wrong row. Please enter motility manually after checking your report.`,
+        };
+        delete results.motility;
+        delete subtypes.motility;
+      }
     }
   }
 
@@ -178,7 +218,28 @@ export function parseReportText(text) {
     results,
     matched,
     subtypes,
-    unitWarnings,
+    unitWarnings: warnings, // kept key-name for backward compat
     foundCount: Object.keys(results).length,
+  };
+}
+
+// Converts a raw parser-level warning into a UI-renderable shape.
+// Parser gives us { value, rawUnit } when units don't match our scale;
+// we turn that into a human-readable title + message here so the UI
+// can render any warning type uniformly.
+function buildUnitWarning(paramKey, found) {
+  if (paramKey === "wbc" && found.rawUnit === "/hpf") {
+    return {
+      value: found.value,
+      rawUnit: found.rawUnit,
+      title: `Pus cells reported as ${found.value} ${found.rawUnit}`,
+      message: `Your lab used per-high-power-field, which can't be graded against the million/mL threshold used here. Clinically, 1 or more pus cells per HPF can indicate possible infection — worth showing to your doctor. If your lab also gave a value in million/mL, please enter that manually.`,
+    };
+  }
+  return {
+    value: found.value,
+    rawUnit: found.rawUnit,
+    title: `Unit mismatch on this value`,
+    message: `Reported as ${found.value}${found.rawUnit ? " " + found.rawUnit : ""}, which doesn't match our expected unit. Please verify with your lab.`,
   };
 }

@@ -33,20 +33,21 @@ export default function App() {
   const [fmCode, setFmCode] = useState(null);
   const [lastResultDate, setLastResultDate] = useState(null);
   const [lookupError, setLookupError] = useState("");
-  // On mount: purge old stored results (>6 months) and auto-detect last result
+  // On mount: purge old stored results (>6 months) and auto-detect last result.
+  // The "Welcome back" banner only appears if the last result is from a previous
+  // day — same-day refreshes (e.g. after a failed scan) shouldn't trigger it.
   useEffect(() => {
     cleanupExpiredResults();
     try {
       const last = JSON.parse(localStorage.getItem(LAST_RESULT_KEY));
-      if (last?.code && last?.date) {
-        // Verify the result still exists after cleanup — it may have expired
-        if (loadResult(last.code)) {
-          setFmCode(last.code);
-          setLastResultDate(last.date);
-        } else {
-          localStorage.removeItem(LAST_RESULT_KEY);
-        }
+      if (!last?.code || !last?.date) return;
+      if (!loadResult(last.code)) {
+        localStorage.removeItem(LAST_RESULT_KEY);
+        return;
       }
+      setFmCode(last.code);
+      const today = new Date().toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" });
+      if (last.date !== today) setLastResultDate(last.date);
     } catch {}
   }, []);
 
