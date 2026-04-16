@@ -318,16 +318,18 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
         )}
 
         {/* ── Support Your Journey — commerce card, deliberately separated
-             from the clinical action rail to preserve medical authority ── */}
+             from the clinical action rail to preserve medical authority.
+             Copy is per-result (snippet.fertiQContext) so the supplement
+             reads as a solution to *this* report, not a generic banner. ── */}
         {snippet?.actions?.some((a) => a.fertiQ) && (
           <section className="mb-14 no-print">
             <div className="p-7 flex flex-col md:flex-row items-start md:items-center justify-between gap-5" style={{ background: "linear-gradient(135deg, #FAF7F1, #F4EDE0)", border: '1px solid rgba(218,198,168,0.4)' }}>
               <div>
-                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-2">Support your journey</p>
+                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-2">Built for your result</p>
                 <p className="font-serif text-[20px] font-bold text-gray-900 mb-1">FertiQ by ForMen Health</p>
-                <p className="text-[13px] text-gray-600 max-w-[420px] leading-relaxed">
-                  A daily fertility supplement formulated with CoQ10, zinc, and antioxidants.
-                  Built to complement the lifestyle steps above — not replace medical care.
+                <p className="text-[13px] text-gray-600 max-w-[440px] leading-relaxed">
+                  {snippet.fertiQContext ||
+                    "A daily fertility supplement with CoQ10, zinc, and antioxidants. Built to support the lifestyle steps above — not replace medical care."}
                 </p>
               </div>
               <a href={FERTIQ_URL} target="_blank" rel="noopener noreferrer" className="btn-primary shrink-0">
@@ -360,18 +362,23 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
         </section>
 
         {/* ── Footer ── */}
-        <div className="flex flex-col md:flex-row items-center justify-between py-5 gap-3" style={{ borderTop: '1px solid rgba(198,197,210,0.15)' }}>
-          <div className="text-center md:text-left">
-            <p className="text-[10px] text-gray-500 uppercase tracking-wide">FM Code</p>
-            <p className="font-mono text-base font-bold text-gray-800 tracking-widest">{fmCode}</p>
+        <div className="py-5" style={{ borderTop: '1px solid rgba(198,197,210,0.15)' }}>
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+            <div className="text-left">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Your save code</p>
+              <p className="font-mono text-base font-bold text-gray-800 tracking-widest">{fmCode}</p>
+            </div>
+            <div className="flex items-center gap-3 text-[11px]">
+              <button onClick={handleCopy} className="font-semibold text-brand-600 hover:text-brand-800 cursor-pointer bg-transparent border-none transition-colors">{copied ? "Copied!" : "Copy"}</button>
+              <span className="text-gray-200">·</span>
+              <button onClick={onCompare} className="font-semibold text-brand-600 hover:text-brand-800 cursor-pointer bg-transparent border-none transition-colors">Compare</button>
+              <span className="text-gray-200">·</span>
+              <button onClick={onReset} className="font-semibold text-gray-500 hover:text-gray-700 cursor-pointer bg-transparent border-none transition-colors">Reset</button>
+            </div>
           </div>
-          <div className="flex items-center gap-3 text-[11px]">
-            <button onClick={handleCopy} className="font-semibold text-brand-600 hover:text-brand-800 cursor-pointer bg-transparent border-none transition-colors">{copied ? "Copied!" : "Copy"}</button>
-            <span className="text-gray-200">·</span>
-            <button onClick={onCompare} className="font-semibold text-brand-600 hover:text-brand-800 cursor-pointer bg-transparent border-none transition-colors">Compare</button>
-            <span className="text-gray-200">·</span>
-            <button onClick={onReset} className="font-semibold text-gray-500 hover:text-gray-700 cursor-pointer bg-transparent border-none transition-colors">Reset</button>
-          </div>
+          <p className="text-[11px] text-gray-500 mt-2 leading-relaxed max-w-[480px]">
+            Save this code to come back to your report on this phone — no signup, no password. Tap "Reopen a previous report" on the home screen.
+          </p>
         </div>
       </div>
     </div>

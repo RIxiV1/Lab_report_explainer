@@ -388,8 +388,25 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
                 </div>
               </div>
 
-              <button type="submit" disabled={!isValid} className="btn-primary w-full py-4">
-                See My Report
+              {/* Progressive visual reward: button is greyed when no
+                  fields are filled, comes alive (gradient + soft pulse)
+                  the moment all 6 are valid. Gives the user a clear
+                  signal that they're ready to submit. */}
+              <button
+                type="submit"
+                disabled={!isValid}
+                className={`w-full py-4 text-[12px] font-semibold uppercase tracking-[0.15rem] transition-all cursor-pointer ${
+                  isValid
+                    ? "text-white"
+                    : "bg-[#C6C5D2]/40 text-gray-500 cursor-not-allowed"
+                }`}
+                style={isValid ? {
+                  background: 'linear-gradient(135deg, #36458E 0%, #1d2d76 100%)',
+                  boxShadow: '0 8px 24px rgba(17,24,82,0.18), 0 0 0 0 rgba(54,69,142,0.4)',
+                  animation: 'btn-ready-pulse 2.4s ease-in-out infinite',
+                } : undefined}
+              >
+                {isValid ? "See My Report →" : `Fill ${REQUIRED_FIELDS.length - filledRequired} more to continue`}
               </button>
             </form>
           </div>
