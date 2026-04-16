@@ -51,6 +51,10 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
   const [unitWarnings, setUnitWarnings] = useState({});
   const [extractedMeta, setExtractedMeta] = useState({ subtypes: {} });
   const [pastedText, setPastedText] = useState("");
+  // The raw text the parser actually saw — surfaced via the
+  // "Show what we read" toggle so users (and us, debugging) can
+  // see what came out of pdf.js / OCR / paste before we parsed it.
+  const [rawText, setRawText] = useState("");
   const fileInputRef = useRef(null);
   const startedAtRef = useRef(0);
   // Tracks the deferred paste-parse timer so we can cancel it if the
@@ -82,10 +86,11 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
     return result.foundCount > 0 ? result : null;
   };
 
-  const finishWithResult = (parsed) => {
+  const finishWithResult = (parsed, sourceText = "") => {
     setStatus("success");
     setExtractedData(parsed.results);
     setUnitWarnings(parsed.unitWarnings || {});
+    setRawText(sourceText);
     const meta = {
       subtypes: parsed.subtypes || {},
       unitWarnings: parsed.unitWarnings || {},
@@ -95,14 +100,15 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
     onExtracted(parsed.results, meta);
   };
 
-  const finishWithError = (msg) => {
+  const finishWithError = (msg, sourceText = "") => {
     setStatus("error");
     setMessage(msg);
+    setRawText(sourceText);
   };
 
-  const finishParsedOrError = (parsed, errorMsg) => {
-    if (parsed) finishWithResult(parsed);
-    else finishWithError(errorMsg);
+  const finishParsedOrError = (parsed, errorMsg, sourceText = "") => {
+    if (parsed) finishWithResult(parsed, sourceText);
+    else finishWithError(errorMsg, sourceText);
   };
 
   // Records a telemetry entry for paste-sourced text.
@@ -122,7 +128,8 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
     });
     finishParsedOrError(
       parsed,
-      "Could not find semen analysis metrics. Try pasting the report text or use manual entry."
+      "Could not find semen analysis metrics. Try pasting the report text or use manual entry.",
+      text
     );
   };
 
@@ -153,7 +160,8 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
       });
       finishParsedOrError(
         parsed,
-        "We couldn't find the test values in this file. Paste the report text below, or type the numbers in by hand."
+        "We couldn't find the test values in this file. Paste the report text below, or type the numbers in by hand.",
+        text
       );
     } catch (err) {
       console.error("PDF OCR failed:", err);
@@ -205,12 +213,14 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
       let best = null;
       let bestStrategy = null;
       const strategyScores = {};
+      let bestText = "";
       for (const c of candidates) {
         const parsed = tryParse(c.text);
         strategyScores[c.name] = parsed?.foundCount ?? 0;
         if (parsed && (!best || parsed.foundCount > best.foundCount)) {
           best = parsed;
           bestStrategy = c.name;
+          bestText = c.text;
         }
       }
 
@@ -225,7 +235,7 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
           strategyScores, fileSize, pageCount, totalCharCount,
           durationMs: durationSinceStart(),
         });
-        finishWithResult(best);
+        finishWithResult(best, bestText);
         return;
       }
 
@@ -281,7 +291,8 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
       });
       finishParsedOrError(
         parsed,
-        "We couldn't find the test values in this file. Paste the report text below, or type the numbers in by hand."
+        "We couldn't find the test values in this file. Paste the report text below, or type the numbers in by hand.",
+        text
       );
     } catch (err) {
       console.error("Image OCR failed:", err);
@@ -333,6 +344,7 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
     setUnitWarnings({});
     setExtractedMeta({ subtypes: {} });
     setPastedText("");
+    setRawText("");
     setCurrentStep(0);
     setSteps(STEPS_TEXT);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -405,6 +417,22 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
               Edit values first
             </button>
           </div>
+
+          {/* Diagnostic — exposes the raw text the parser saw so the
+              user (or us, debugging an off-value) can see what came out
+              of pdf.js / OCR. Hidden behind a <details> so it doesn't
+              clutter the success state for normal users. */}
+          {rawText && (
+            <details className="mt-5 group">
+              <summary className="text-[10px] text-neutral-400 uppercase tracking-wide cursor-pointer hover:text-neutral-600 list-none transition-colors">
+                Show what we read from the file
+              </summary>
+              <pre className="mt-3 p-3 bg-surface-mid text-[11px] text-gray-700 leading-relaxed whitespace-pre-wrap max-h-[240px] overflow-y-auto font-mono">
+                {rawText.slice(0, 8000)}
+                {rawText.length > 8000 && "\n…(truncated)"}
+              </pre>
+            </details>
+          )}
         </div>
       </div>
     );
@@ -484,6 +512,22 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
               Try another file
             </button>
           </div>
+
+          {/* Even more useful in the error state — if the parser saw
+              text but didn't match any fields, the user can see whether
+              extraction was garbage (bad OCR) or just unrecognized
+              format (then they can paste it cleaned up). */}
+          {rawText && (
+            <details className="mt-5 group">
+              <summary className="text-[10px] text-neutral-500 uppercase tracking-wide cursor-pointer hover:text-neutral-700 list-none transition-colors">
+                Show what we read from the file
+              </summary>
+              <pre className="mt-3 p-3 bg-white text-[11px] text-gray-700 leading-relaxed whitespace-pre-wrap max-h-[240px] overflow-y-auto font-mono">
+                {rawText.slice(0, 8000)}
+                {rawText.length > 8000 && "\n…(truncated)"}
+              </pre>
+            </details>
+          )}
         </div>
       </div>
     );

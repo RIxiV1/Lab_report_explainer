@@ -283,12 +283,29 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
           </section>
         )}
 
-        {/* ── Doctor CTA ── */}
+        {/* ── Doctor CTA — verdict-aware copy ──
+            The same generic CTA on every verdict was a real liability
+            risk: a user with an ALL_NORMAL verdict could read "no
+            problems found" and skip seeing a doctor even when they're
+            actively trying. Each verdict gets framing that pushes the
+            user toward a doctor for the *right reason* for their state. */}
         <section className="mb-14 no-print">
           <div className="p-7 flex flex-col md:flex-row items-start md:items-center justify-between gap-5" style={{ background: "linear-gradient(135deg, #F2F3F9, #EAECFA)", border: '1px solid rgba(218,225,249,0.4)' }}>
             <div>
-              <p className="font-serif text-[20px] font-bold text-gray-900 mb-1">Talk to a fertility doctor</p>
-              <p className="text-[13px] text-gray-500 max-w-[380px]">A 15-minute call. A doctor will go through your exact numbers with you.</p>
+              <p className="font-serif text-[20px] font-bold text-gray-900 mb-1">
+                {result.verdict === "ALL_NORMAL"
+                  ? "Normal numbers aren't the whole picture"
+                  : result.verdict === "ACT_NOW"
+                    ? "These results need a doctor's eyes"
+                    : "Talk to a fertility doctor"}
+              </p>
+              <p className="text-[13px] text-gray-500 max-w-[420px] leading-relaxed">
+                {result.verdict === "ALL_NORMAL"
+                  ? "A standard semen analysis can't see DNA quality, hormone levels, or your partner's side. If you've been trying for a while, a 15-minute call is the fastest way to find out what to test next."
+                  : result.verdict === "ACT_NOW"
+                    ? "Don't wait. The findings here have well-established treatments — but only a fertility doctor can tell you which one fits your case."
+                    : "A 15-minute call. A doctor will go through your exact numbers with you and decide if anything needs follow-up."}
+              </p>
             </div>
             <a href={DOCTOR_URL} target="_blank" rel="noopener noreferrer" className="btn-primary shrink-0 no-print">
               Book Free Call

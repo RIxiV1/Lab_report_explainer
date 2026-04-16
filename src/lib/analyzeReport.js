@@ -23,16 +23,29 @@
 
 import { PARAM_ORDER, PARAM_META, REQUIRED_PARAMS, TMSC_TIERS } from "./constants";
 
-// WHO 2021 thresholds for classifying values. Motility has two variants:
-// - total motility (a+b+c): normal ≥42%, warning 30–41%
-// - progressive motility (a+b): normal ≥30%, warning 20–29%
+// Thresholds for classifying values.
+//
+// IMPORTANT — Source distinction:
+//   normalMin / normalMax → WHO 2021 5th-centile reference limit
+//                           (the only line WHO actually defines)
+//   warningMin / warningMax → CLINICAL CONVENTION, not WHO. Picked to
+//                           give users a tiered signal (Borderline vs
+//                           Needs Focus). Defensible but should not be
+//                           cited as "WHO recommends." If a regulator
+//                           or doctor asks where the critical line
+//                           comes from, the answer is "common practice
+//                           in reproductive medicine," not WHO 2021.
+//
+// Motility has two variants:
+// - total motility (a+b+c): normal ≥42%, warning 30–41%   [WHO 2021 / convention]
+// - progressive motility (a+b): normal ≥30%, warning 20–29% [WHO 2021 / convention]
 // The parser tags which variant was matched so we grade correctly.
 const THRESHOLDS = {
-  spermCount:          { normalMin: 16, warningMin: 5 },
-  motilityTotal:       { normalMin: 42, warningMin: 30 },
-  motilityProgressive: { normalMin: 30, warningMin: 20 },
-  morphology:          { normalMin: 4,  warningMin: 2 },
-  wbc:                 { normalMax: 1.0, warningMax: 2.0 },
+  spermCount:          { normalMin: 16,  warningMin: 5    }, // 16 = WHO 2021 ref. limit; 5 = clinical convention
+  motilityTotal:       { normalMin: 42,  warningMin: 30   }, // 42 = WHO 2021;            30 = clinical convention
+  motilityProgressive: { normalMin: 30,  warningMin: 20   }, // 30 = WHO 2021;            20 = clinical convention
+  morphology:          { normalMin: 4,   warningMin: 2    }, // 4  = WHO 2021;            2  = clinical convention
+  wbc:                 { normalMax: 1.0, warningMax: 2.0  }, // 1.0 = WHO 2021;           2.0 = clinical convention (suggests infection workup)
   // volume and pH use dedicated classifiers below (range-based)
 };
 
@@ -48,17 +61,23 @@ function classifyInverted(value, normalMax, warningMax) {
   return "CRITICAL";
 }
 
-// Volume: WHO 2021 defines only a lower reference limit (1.4 mL). There
-// is no clinically defined upper bound, so we do NOT flag high volume
-// as pathological — just the low side.
+// Volume: WHO 2021 defines only a lower reference limit (1.4 mL).
+// - 1.4 mL line: WHO 2021 (cited)
+// - 0.5 mL warning line: CLINICAL CONVENTION (not WHO). Below 0.5 mL
+//   is hypospermia, often points to ductal/collection issues.
+// No upper bound — high volume isn't pathological per WHO 2021.
 function classifyVolume(value) {
   if (value >= 1.4) return "NORMAL";
   if (value >= 0.5) return "WARNING";
   return "CRITICAL";
 }
 
-// pH: WHO 2021 states ≥ 7.2. Clinically, >8.0 is borderline and >8.5 suggests issues.
-// Low pH (7.0–7.19) is borderline, not immediately critical.
+// pH:
+// - 7.2–8.0 normal: WHO 2021 only defines the lower limit (≥7.2);
+//   the 8.0 upper soft-ceiling is CLINICAL CONVENTION (not WHO).
+// - 7.0–7.19 + 8.0–8.5 warning: CLINICAL CONVENTION used to flag
+//   possible silent infection (prostatitis) or collection issues.
+// - Outside 7.0–8.5 critical: convention.
 function classifyPH(value) {
   if (value >= 7.2 && value <= 8.0) return "NORMAL";
   if ((value >= 7.0 && value < 7.2) || (value > 8.0 && value <= 8.5)) return "WARNING";

@@ -38,9 +38,13 @@ export const REQUIRED_FIELDS = PARAM_ORDER.map((key) => ({
 // ── TMSC (Total Motile Sperm Count) reference tiers ────────────────
 // TMSC = Volume × Concentration × (Total Motility / 100)
 //
-// These thresholds are widely used in reproductive medicine as reference
-// ranges. We deliberately do NOT name specific treatment pathways (IUI,
-// IVF, ICSI) — recommending a specific clinical course is a diagnostic
+// SOURCE: CLINICAL CONVENTION — these tiers (≥20 / 5–20 / <5 million)
+// are widely used in reproductive medicine but are NOT defined by WHO
+// 2021. WHO 2021 doesn't specify TMSC tiers at all. Cite as "common
+// clinical practice," not "WHO standard."
+//
+// We deliberately do NOT name specific treatment pathways (IUI, IVF,
+// ICSI) — recommending a specific clinical course is a diagnostic
 // function that belongs with a qualified doctor, not this tool.
 export const TMSC_TIERS = {
   NATURAL: {
