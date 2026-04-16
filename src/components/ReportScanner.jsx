@@ -341,12 +341,12 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-[1px] bg-[#E3E9EA] mb-6">
+          <div className="grid grid-cols-2 gap-[1px] bg-surface-divider mb-6">
             {keys.map((key) => {
               const meta = PARAM_META[key];
               if (!meta) return null;
               return (
-                <div key={key} className="bg-[#EFF5F6] p-4">
+                <div key={key} className="bg-surface-mid p-4">
                   <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">{meta.label}</p>
                   <p className="font-serif text-[24px] font-bold text-gray-900 tabular-nums">
                     {extractedData[key]}
@@ -446,7 +446,7 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
               value={pastedText}
               onChange={(e) => setPastedText(e.target.value)}
               placeholder="Paste your full report text here. We'll look for sperm count, motility, morphology, volume, pH and pus cells."
-              className="w-full bg-white p-3 text-[13px] leading-relaxed border border-[#E3E9EA] focus:outline-none focus:border-brand-500 transition-colors resize-y"
+              className="w-full bg-white p-3 text-[13px] leading-relaxed border border-surface-divider focus:outline-none focus:border-brand-500 transition-colors resize-y"
               rows={6}
             />
           </div>
@@ -469,7 +469,7 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
   }
 
   // ── IDLE STATE ──
-  const bgClass = isHovering ? "bg-[#E3E9EA]" : "bg-white";
+  const bgClass = isHovering ? "bg-surface-divider" : "bg-white";
 
   return (
     <div className="mb-8">

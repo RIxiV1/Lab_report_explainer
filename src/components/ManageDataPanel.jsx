@@ -61,7 +61,7 @@ export default function ManageDataPanel({ onClose, onDataWiped }) {
           </>
         ) : (
           <>
-            <div className="bg-[#EFF5F6] p-4 mb-5 space-y-2.5">
+            <div className="bg-surface-mid p-4 mb-5 space-y-2.5">
               <div className="flex justify-between items-baseline">
                 <span className="text-[11px] text-gray-500 uppercase tracking-wide">Reports stored</span>
                 <span className="font-serif text-[20px] font-bold text-gray-900 tabular-nums">{stats.resultCount}</span>

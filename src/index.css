@@ -42,6 +42,7 @@
 
   input[type="number"] {
     -moz-appearance: textfield;
+    appearance: textfield;
   }
 
   /* Editorial scrollbar */
@@ -191,20 +192,90 @@
   animation: editorial-fade-up 0.5s cubic-bezier(0.2, 0, 0, 1) forwards;
 }
 
-/* ── Print styles ── */
+/* ── Reduced-motion preferences ──
+   WCAG 2.1 AA: Honour the OS-level "reduce motion" setting. The
+   editorial fade-up and the submit-button "ready pulse" are both
+   non-essential motion; replace with instant transitions so users
+   with vestibular sensitivity aren't pushed off-balance. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-editorial,
+  .btn-primary,
+  .btn-secondary {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+/* ── Print styles ──
+   Goals: medical-record style. White paper, dark text, no CTAs,
+   no decorative gradients, no hover/animation states, every section
+   intact across page breaks. The dark hero needs special handling —
+   white text on a dark print background wastes ink and is unreadable
+   on cheap printers. */
 @media print {
   body {
     background: #fff !important;
+    color: #000 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 
-  .no-print {
+  .no-print,
+  nav,
+  details,
+  [role="tooltip"],
+  button[type="button"]:not(.print-keep) {
     display: none !important;
   }
 
-  nav {
-    position: static !important;
+  /* Dark hero → light hero. Force-flatten the brand background
+     and tint white-on-* text variants down to printable greys. */
+  .bg-brand-900 {
+    background: #fff !important;
+    color: #000 !important;
+    border-bottom: 2px solid #000;
+  }
+  .bg-brand-900 *,
+  .bg-brand-900 .text-white {
+    color: #000 !important;
+  }
+  .bg-brand-900 .text-white\/30,
+  .bg-brand-900 .text-white\/35,
+  .bg-brand-900 .text-white\/40 {
+    color: #555 !important;
+  }
+  .bg-brand-900 .text-white\/60 {
+    color: #333 !important;
+  }
+
+  /* Per-section page-break safety — never split a parameter
+     card or action-rail group across pages. */
+  section,
+  .card-tonal {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  h1, h2, h3 {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  /* Drop the soft-shadow + tonal flourishes — they print as smudges. */
+  .whisper-shadow-sm,
+  .whisper-shadow-lg,
+  .card-tonal {
+    box-shadow: none !important;
+  }
+
+  /* Action checkboxes — outline only, paper-friendly */
+  .no-print + * .w-\[18px\] {
+    border: 1px solid #999 !important;
   }
 
   @page {

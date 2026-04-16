@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import ParameterCard from "./ParameterCard";
 import Nav from "./Nav";
 import { PARAM_ORDER, PARAM_META, VERDICT_CONFIG, TIMELINE_ORDER, FERTIQ_URL } from "../lib/constants";
+import { getActions, saveActions } from "../lib/resultStore";
 
 const CTX_LINES = {
   spermCount: { NORMAL: "Healthy count.", WARNING: "A little low — often improves with changes.", CRITICAL: "There are many ways to improve this." },
@@ -96,14 +97,14 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
 
   useEffect(() => {
     if (!fmCode) return;
-    try { setCheckedActions(JSON.parse(localStorage.getItem(`fm_actions_${fmCode}`) || "{}")); } catch {}
+    setCheckedActions(getActions(fmCode));
   }, [fmCode]);
 
   function toggleAction(timeline, index) {
     const key = `${timeline}-${index}`;
     setCheckedActions((prev) => {
       const next = { ...prev, [key]: !prev[key] };
-      if (fmCode) localStorage.setItem(`fm_actions_${fmCode}`, JSON.stringify(next));
+      if (fmCode) saveActions(fmCode, next);
       return next;
     });
   }
@@ -130,11 +131,11 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
     : null;
 
   return (
-    <div className="min-h-screen bg-[#F4FAFB]">
+    <div className="min-h-screen bg-surface">
       <Nav sticky className="no-print" onLogoClick={onReset} />
 
       {/* ══════ HERO ══════ */}
-      <section className="bg-[#111852] text-white relative overflow-hidden">
+      <section className="bg-brand-900 text-white relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none" style={{
           backgroundImage: 'radial-gradient(ellipse at 85% 15%, rgba(54,69,142,0.5) 0%, transparent 50%), radial-gradient(ellipse at 15% 85%, rgba(54,69,142,0.25) 0%, transparent 50%)',
         }} />
@@ -213,10 +214,10 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
 
           {/* Buttons */}
           <div className="no-print flex gap-2 flex-wrap">
-            <button onClick={() => window.print()} className="bg-white text-[#111852] font-semibold px-5 py-2.5 text-[11px] uppercase tracking-wide cursor-pointer hover:bg-gray-100 transition-colors" style={{ boxShadow: '0 4px 16px rgba(17,24,82,0.2)' }}>
+            <button onClick={() => window.print()} className="bg-white text-brand-900 font-semibold px-5 py-2.5 text-[11px] uppercase tracking-wide cursor-pointer hover:bg-gray-100 transition-colors" style={{ boxShadow: '0 4px 16px rgba(17,24,82,0.2)' }}>
               Print Report
             </button>
-            <button onClick={handleWhatsApp} className="bg-[#36458E] text-white font-semibold px-5 py-2.5 text-[11px] uppercase tracking-wide cursor-pointer hover:bg-[#283573] transition-colors">
+            <button onClick={handleWhatsApp} className="bg-brand-500 text-white font-semibold px-5 py-2.5 text-[11px] uppercase tracking-wide cursor-pointer hover:bg-[#283573] transition-colors">
               Share
             </button>
             <button onClick={onBackToInput} className="text-white/40 hover:text-white/80 font-semibold px-5 py-2.5 text-[11px] uppercase tracking-wide cursor-pointer bg-transparent transition-colors" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
@@ -232,7 +233,7 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
         {/* ── Parameter Cards ── */}
         <section className="mb-14">
           <div className="flex items-baseline justify-between mb-6">
-            <h3 className="font-serif text-[24px] font-bold text-gray-900 tracking-tight">Your Results</h3>
+            <h2 className="font-serif text-[24px] font-bold text-gray-900 tracking-tight">Your Results</h2>
             <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">WHO 2021</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -265,13 +266,13 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
         )}
 
         {/* ── Doctor CTA ── */}
-        <section className="mb-14">
+        <section className="mb-14 no-print">
           <div className="p-7 flex flex-col md:flex-row items-start md:items-center justify-between gap-5" style={{ background: "linear-gradient(135deg, #F2F3F9, #EAECFA)", border: '1px solid rgba(218,225,249,0.4)' }}>
             <div>
               <p className="font-serif text-[20px] font-bold text-gray-900 mb-1">Talk to a fertility doctor</p>
               <p className="text-[13px] text-gray-500 max-w-[380px]">A 15-minute call. A doctor will go through your exact numbers with you.</p>
             </div>
-            <a href={DOCTOR_URL} target="_blank" rel="noopener noreferrer" className="btn-primary shrink-0">
+            <a href={DOCTOR_URL} target="_blank" rel="noopener noreferrer" className="btn-primary shrink-0 no-print">
               Book Free Call
             </a>
           </div>
@@ -280,14 +281,14 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
         {/* ── Next Steps ── */}
         {snippet?.actions && snippet.actions.length > 0 && (
           <section className="mb-14">
-            <h3 className="font-serif text-[24px] font-bold text-gray-900 tracking-tight mb-5">Next Steps</h3>
+            <h2 className="font-serif text-[24px] font-bold text-gray-900 tracking-tight mb-5">Next Steps</h2>
             <div className="card-tonal overflow-hidden">
               {TIMELINE_ORDER.map((timeline, index) => {
                 const items = actionGroups[timeline];
                 if (!items || items.length === 0) return null;
                 return (
                   <div key={timeline} style={index > 0 ? { borderTop: '1px solid rgba(198,197,210,0.12)' } : undefined}>
-                    <div className="bg-[#EFF5F6] px-5 py-2" style={{ borderBottom: '1px solid rgba(198,197,210,0.08)' }}>
+                    <div className="bg-surface-mid px-5 py-2" style={{ borderBottom: '1px solid rgba(198,197,210,0.08)' }}>
                       <p className="text-[11px] uppercase tracking-wider font-bold text-gray-500">{timeline}</p>
                     </div>
                     <div className="p-5 space-y-3">
@@ -341,8 +342,8 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
 
         {/* ── While You Wait — single compact block ── */}
         <section className="mb-14">
-          <h3 className="font-serif text-[24px] font-bold text-gray-900 tracking-tight mb-5">Healthy Habits</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-[1px] bg-[#E3E9EA]">
+          <h2 className="font-serif text-[24px] font-bold text-gray-900 tracking-tight mb-5">Healthy Habits</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-[1px] bg-surface-divider">
             <div className="bg-white p-5">
               <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-3">Diet</p>
               {FOOD_TIPS.map((tip, i) => (
@@ -368,7 +369,7 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
               <p className="text-[10px] text-gray-500 uppercase tracking-wide">Your save code</p>
               <p className="font-mono text-base font-bold text-gray-800 tracking-widest">{fmCode}</p>
             </div>
-            <div className="flex items-center gap-3 text-[11px]">
+            <div className="flex items-center gap-3 text-[11px] no-print">
               <button onClick={handleCopy} className="font-semibold text-brand-600 hover:text-brand-800 cursor-pointer bg-transparent border-none transition-colors">{copied ? "Copied!" : "Copy"}</button>
               <span className="text-gray-200">·</span>
               <button onClick={onCompare} className="font-semibold text-brand-600 hover:text-brand-800 cursor-pointer bg-transparent border-none transition-colors">Compare</button>
@@ -376,7 +377,7 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
               <button onClick={onReset} className="font-semibold text-gray-500 hover:text-gray-700 cursor-pointer bg-transparent border-none transition-colors">Reset</button>
             </div>
           </div>
-          <p className="text-[11px] text-gray-500 mt-2 leading-relaxed max-w-[480px]">
+          <p className="text-[11px] text-gray-500 mt-2 leading-relaxed max-w-[480px] no-print">
             Save this code to come back to your report on this phone — no signup, no password. Tap "Reopen a previous report" on the home screen.
           </p>
         </div>

@@ -1,14 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { REQUIRED_FIELDS, FM_CODE_REGEX, DRAFT_KEY } from "../lib/constants";
+import { REQUIRED_FIELDS, FM_CODE_REGEX } from "../lib/constants";
+import { getDraft, saveDraft, clearDraft } from "../lib/resultStore";
 import Nav from "./Nav";
 import ReportScanner from "./ReportScanner";
 import ManageDataPanel from "./ManageDataPanel";
-
-function loadDraft() {
-  try {
-    return JSON.parse(localStorage.getItem(DRAFT_KEY) || "{}");
-  } catch { return {}; }
-}
 
 function validate(field, raw, { requireValue }) {
   if (raw === "" || raw === undefined) return requireValue ? "Required" : "";
@@ -19,7 +14,7 @@ function validate(field, raw, { requireValue }) {
 }
 
 export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBackToReport, lastResultDate, onRestoreLastResult, initialEntryMode = "scan" }) {
-  const draft = useRef(loadDraft()).current;
+  const draft = useRef(getDraft()).current;
   const [values, setValues] = useState(draft.values || {});
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
@@ -32,20 +27,31 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
   const [fmCode, setFmCode] = useState("");
   const [fmCodeError, setFmCodeError] = useState("");
   const [showManagePanel, setShowManagePanel] = useState(false);
+  // Remembers scan metadata across mode switches:
+  // - subtypes: which motility variant was matched (total vs progressive)
+  //   so the classifier uses the right WHO threshold (42% vs 30%).
+  // - unitWarnings: per-field warnings (e.g. WBC reported as /hpf) shown
+  //   as hints under the relevant input.
+  // Seeded from draft so "Edit Details" re-grades against the same threshold.
+  // MUST be declared before any useEffect that reads it — otherwise the
+  // dep-array access throws a TDZ at render time.
+  const [extractedMeta, setExtractedMeta] = useState({
+    subtypes: draft.motilitySubtype ? { motility: draft.motilitySubtype } : {},
+    unitWarnings: {},
+    extras: {},
+  });
   const tooltipRef = useRef(null);
   const draftTimer = useRef(null);
 
   useEffect(() => {
     clearTimeout(draftTimer.current);
     draftTimer.current = setTimeout(() => {
-      try {
-        localStorage.setItem(DRAFT_KEY, JSON.stringify({
-          values, age, monthsTrying,
-          // Preserve the motility subtype across reloads so a re-grade
-          // uses the same WHO threshold (total 42% vs progressive 30%).
-          motilitySubtype: extractedMeta.subtypes?.motility || null,
-        }));
-      } catch {}
+      saveDraft({
+        values, age, monthsTrying,
+        // Preserve the motility subtype across reloads so a re-grade
+        // uses the same WHO threshold (total 42% vs progressive 30%).
+        motilitySubtype: extractedMeta.subtypes?.motility || null,
+      });
     }, 500);
     return () => clearTimeout(draftTimer.current);
   }, [values, age, monthsTrying, extractedMeta]);
@@ -136,20 +142,8 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
     setAgeError("");
     setMonthsError("");
     setExtractedMeta({ subtypes: {}, unitWarnings: {} });
-    try { localStorage.removeItem(DRAFT_KEY); } catch {}
+    clearDraft();
   }
-
-  // Remembers scan metadata across mode switches:
-  // - subtypes: which motility variant was matched (total vs progressive)
-  //   so the classifier uses the right WHO threshold (42% vs 30%).
-  // - unitWarnings: per-field warnings (e.g. WBC reported as /hpf) shown
-  //   as hints under the relevant input.
-  // Seeded from draft so "Edit Details" re-grades against the same threshold.
-  const [extractedMeta, setExtractedMeta] = useState({
-    subtypes: draft.motilitySubtype ? { motility: draft.motilitySubtype } : {},
-    unitWarnings: {},
-    extras: {},
-  });
 
   function handleExtractedData(extractedValues, meta = { subtypes: {}, unitWarnings: {}, extras: {} }) {
     setExtractedMeta(meta);
@@ -176,16 +170,42 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
   }
 
   function renderField(field) {
+    const raw = values[field.key];
+    const hasValue = raw !== "" && raw !== undefined;
     const hasError = touched[field.key] && errors[field.key];
+    // Real-time "field is valid" signal — flips on the moment the value
+    // is in-range, even before blur. Errors still wait for blur (we
+    // don't yell at users who are mid-typing).
+    const isFieldValid = hasValue && !errors[field.key] &&
+      validate(field, raw, { requireValue: true }) === "";
     const unitWarning = extractedMeta.unitWarnings?.[field.key];
+
+    // a11y: link the input to its hint/error/warning text via
+    // aria-describedby so screen readers announce the right context.
+    const hintId = `${field.key}-hint`;
+    const warningId = unitWarning && !hasError ? `${field.key}-warning` : null;
+    const describedBy = [hintId, warningId].filter(Boolean).join(" ");
+
     return (
-      <div key={field.key} className="bg-white p-5 transition-colors hover:bg-[#FAFBFD]">
+      <div key={field.key} className="bg-white p-5 transition-colors hover:bg-surface-hover">
         <div className="flex items-center gap-2 mb-3">
           <label htmlFor={field.key} className="label-clinical">{field.label}</label>
+          {/* Real-time valid checkmark — instant positive feedback */}
+          {isFieldValid && (
+            <span
+              aria-hidden="true"
+              className="text-wellness-600 text-[12px] leading-none"
+              style={{ animation: 'editorial-fade-up 0.2s ease forwards' }}
+              title="Looks valid"
+            >
+              ✓
+            </span>
+          )}
           <div className="relative ml-auto" ref={activeTooltip === field.key ? tooltipRef : null}>
             <button
               type="button"
               aria-label={`About ${field.label}`}
+              aria-expanded={activeTooltip === field.key}
               onClick={() => setActiveTooltip(activeTooltip === field.key ? null : field.key)}
               className="text-[10px] text-gray-500 hover:text-brand-500 cursor-pointer bg-transparent border-none uppercase tracking-wide font-semibold transition-colors"
             >
@@ -212,6 +232,8 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
             className="fm-input"
             style={field.unit ? { paddingRight: 52 } : undefined}
             aria-invalid={!!hasError}
+            aria-describedby={describedBy}
+            aria-required="true"
           />
           {field.unit && (
             <span className="absolute right-0 top-1/2 -translate-y-1/2 text-[11px] text-gray-500 font-medium pointer-events-none">
@@ -220,16 +242,20 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
           )}
         </div>
 
+        {/* Underline reflects state: error (orange) > valid (green) > neutral */}
         <div
           className="h-[2px] mt-1 transition-all"
           style={{
             background: hasError
               ? '#c2410c'
-              : 'linear-gradient(90deg, rgba(198,197,210,0.25) 0%, rgba(198,197,210,0.08) 100%)',
+              : isFieldValid
+                ? '#8BB992'
+                : 'linear-gradient(90deg, rgba(198,197,210,0.25) 0%, rgba(198,197,210,0.08) 100%)',
           }}
         />
 
         <p
+          id={hintId}
           className={`text-[11px] mt-2 ${hasError ? "text-orange-600 font-medium" : "text-gray-500"}`}
           role={hasError ? "alert" : undefined}
           aria-live={hasError ? "polite" : undefined}
@@ -238,7 +264,7 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
         </p>
 
         {unitWarning && !hasError && (
-          <div role="note" className="mt-2 p-3 bg-yellow-50 border-l-[3px] border-yellow-500">
+          <div id={warningId} role="note" className="mt-2 p-3 bg-yellow-50 border-l-[3px] border-yellow-500">
             {unitWarning.title && (
               <p className="text-[11px] font-semibold text-gray-900 mb-1">{unitWarning.title}</p>
             )}
@@ -255,7 +281,7 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
   }
 
   return (
-    <div className="min-h-screen bg-[#F4FAFB]">
+    <div className="min-h-screen bg-surface">
       <Nav onLogoClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
         {onBackToReport && (
           <button onClick={onBackToReport} className="btn-secondary">Back to Report</button>
@@ -293,7 +319,7 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
         )}
 
         {/* Segmented Control */}
-        <div className="flex bg-[#E3E9EA] p-[3px] w-full max-w-[380px] mb-12">
+        <div className="flex bg-surface-divider p-[3px] w-full max-w-[380px] mb-12">
           {[
             { key: "scan", label: "Smart Scan" },
             { key: "manual", label: "Manual Entry" },
@@ -302,11 +328,10 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
               key={tab.key}
               type="button"
               onClick={() => setEntryMode(tab.key)}
-              className={`flex-1 text-[12px] font-semibold uppercase tracking-clinical py-2.5 transition-all cursor-pointer ${
-                entryMode === tab.key
+              className={`flex-1 text-[12px] font-semibold uppercase tracking-clinical py-2.5 transition-all cursor-pointer ${entryMode === tab.key
                   ? "bg-white text-brand-900"
                   : "text-gray-500 hover:text-gray-700 bg-transparent"
-              }`}
+                }`}
               style={entryMode === tab.key ? { boxShadow: '0 4px 12px rgba(17,24,82,0.06)' } : undefined}
             >
               {tab.label}
@@ -324,7 +349,7 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
             <form onSubmit={handleSubmit} noValidate>
               {/* Progress + clear */}
               <div className="flex items-center gap-3 mb-8">
-                <div className="flex-1 h-[2px] bg-[#E3E9EA] overflow-hidden">
+                <div className="flex-1 h-[2px] bg-surface-divider overflow-hidden">
                   <div
                     className="h-full transition-all duration-500"
                     style={{
@@ -350,41 +375,55 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
               </div>
 
               {/* Fields — tonal gap between items */}
-              <div className="flex flex-col gap-[1px] bg-[#E3E9EA] mb-8 whisper-shadow-sm">
+              <div className="flex flex-col gap-[1px] bg-surface-divider mb-8 whisper-shadow-sm">
                 {REQUIRED_FIELDS.map((f) => renderField(f))}
               </div>
 
               {/* Context */}
-              <div className="bg-[#EFF5F6] p-5 mb-8">
+              <div className="bg-surface-mid p-5 mb-8">
                 <p className="label-clinical mb-4">About you (optional)</p>
                 <div className="grid grid-cols-2 gap-4">
                   {[
                     { id: "age", label: "Age", unit: "years", value: age, setter: setAge, error: ageError, errSetter: setAgeError },
                     { id: "monthsTrying", label: "Trying for a baby", unit: "months", value: monthsTrying, setter: setMonthsTrying, error: monthsError, errSetter: setMonthsError },
-                  ].map((f) => (
-                    <div key={f.id}>
-                      <label htmlFor={f.id} className="text-[10px] text-gray-500 uppercase tracking-wide block mb-2">{f.label}</label>
-                      <div className="relative">
-                        <input
-                          id={f.id}
-                          type="number"
-                          inputMode="numeric"
-                          placeholder="—"
-                          value={f.value}
-                          onChange={(e) => { f.setter(e.target.value); f.errSetter(""); }}
-                          className="fm-input text-lg"
-                          style={{ paddingRight: 44 }}
-                          aria-invalid={!!f.error}
+                  ].map((f) => {
+                    const hasOptValue = f.value !== "" && f.value !== undefined;
+                    const hasOptError = !!f.error;
+                    const errorId = hasOptError ? `${f.id}-error` : null;
+                    return (
+                      <div key={f.id}>
+                        <label htmlFor={f.id} className="text-[10px] text-gray-500 uppercase tracking-wide block mb-2">{f.label}</label>
+                        <div className="relative">
+                          <input
+                            id={f.id}
+                            type="number"
+                            inputMode="numeric"
+                            placeholder="—"
+                            value={f.value}
+                            onChange={(e) => { f.setter(e.target.value); f.errSetter(""); }}
+                            className="fm-input text-lg"
+                            style={{ paddingRight: 44 }}
+                            aria-invalid={hasOptError}
+                            aria-describedby={errorId || undefined}
+                          />
+                          <span className="absolute right-0 top-1/2 -translate-y-1/2 text-[11px] text-gray-500">{f.unit}</span>
+                        </div>
+                        <div
+                          className="h-[2px] mt-1 transition-all"
+                          style={{
+                            background: hasOptError
+                              ? '#c2410c'
+                              : hasOptValue
+                                ? '#8BB992'
+                                : 'linear-gradient(90deg, rgba(198,197,210,0.25) 0%, rgba(198,197,210,0.08) 100%)',
+                          }}
                         />
-                        <span className="absolute right-0 top-1/2 -translate-y-1/2 text-[11px] text-gray-500">{f.unit}</span>
+                        {hasOptError && (
+                          <p id={errorId} role="alert" aria-live="polite" className="text-[11px] text-orange-600 mt-1">{f.error}</p>
+                        )}
                       </div>
-                      <div
-                        className="h-[2px] mt-1"
-                        style={{ background: 'linear-gradient(90deg, rgba(198,197,210,0.25) 0%, rgba(198,197,210,0.08) 100%)' }}
-                      />
-                      {f.error && <p role="alert" aria-live="polite" className="text-[11px] text-orange-600 mt-1">{f.error}</p>}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -395,11 +434,10 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
               <button
                 type="submit"
                 disabled={!isValid}
-                className={`w-full py-4 text-[12px] font-semibold uppercase tracking-[0.15rem] transition-all cursor-pointer ${
-                  isValid
+                className={`w-full py-4 text-[12px] font-semibold uppercase tracking-[0.15rem] transition-all cursor-pointer ${isValid
                     ? "text-white"
                     : "bg-[#C6C5D2]/40 text-gray-500 cursor-not-allowed"
-                }`}
+                  }`}
                 style={isValid ? {
                   background: 'linear-gradient(135deg, #36458E 0%, #1d2d76 100%)',
                   boxShadow: '0 8px 24px rgba(17,24,82,0.18), 0 0 0 0 rgba(54,69,142,0.4)',
@@ -428,7 +466,7 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
                 placeholder="FM-XXXX-XXXX"
                 value={fmCode}
                 onChange={(e) => { setFmCode(e.target.value); setFmCodeError(""); }}
-                className="flex-1 bg-[#EFF5F6] px-3 py-2.5 text-sm tracking-wider uppercase focus:outline-none"
+                className="flex-1 bg-surface-mid px-3 py-2.5 text-sm tracking-wider uppercase focus:outline-none"
                 aria-label="FM Code"
                 style={{ borderBottom: '2px solid rgba(198,197,210,0.2)' }}
               />

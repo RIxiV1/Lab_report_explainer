@@ -1,10 +1,44 @@
-// FM Code generation + result persistence in localStorage.
+// FM Code generation + all client-side persistence.
+//
+// All localStorage access for this app is funneled through this module
+// so that:
+//   - key naming is consistent (single "fm_" namespace)
+//   - try/catch + JSON parsing logic isn't repeated in every component
+//   - wipeAllData() can find every entry by prefix without surprises
+//   - schema migrations have a single seam to evolve
 
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0,1,O,I
 const CODE_REGEX = /^FM-[A-Z2-9]{4}-[A-Z2-9]{4}$/;
 const RESULT_KEY_PREFIX = "fm_result_";
 const ACTIONS_KEY_PREFIX = "fm_actions_";
+const DRAFT_KEY = "fm_input_draft";
+const LAST_RESULT_KEY = "fm_last_result";
 const MAX_AGE_MS = 180 * 24 * 60 * 60 * 1000; // 6 months
+
+// Tiny JSON-safe wrappers so callers don't repeat try/catch and
+// JSON.parse boilerplate. Returns the fallback on any failure
+// (missing key, parse error, storage unavailable).
+function readJSON(key, fallback = null) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJSON(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function removeKey(key) {
+  try { localStorage.removeItem(key); } catch {}
+}
 
 function randomBlock(len) {
   const arr = new Uint8Array(len);
@@ -17,24 +51,49 @@ export function generateCode() {
 }
 
 export function saveResult(code, resultData) {
-  try {
-    localStorage.setItem(
-      RESULT_KEY_PREFIX + code,
-      JSON.stringify({ result: resultData, timestamp: new Date().toISOString() })
-    );
-  } catch {
-    // localStorage quota exceeded — result won't persist but analysis still works
-  }
+  writeJSON(RESULT_KEY_PREFIX + code, {
+    result: resultData,
+    timestamp: new Date().toISOString(),
+  });
 }
 
 export function loadResult(code) {
   if (!CODE_REGEX.test(code)) return null;
-  try {
-    const raw = localStorage.getItem(RESULT_KEY_PREFIX + code);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
+  return readJSON(RESULT_KEY_PREFIX + code);
+}
+
+// ── Form draft (auto-saved values from InputForm) ────────────────
+export function getDraft() {
+  return readJSON(DRAFT_KEY, {});
+}
+export function saveDraft(draft) {
+  writeJSON(DRAFT_KEY, draft);
+}
+export function clearDraft() {
+  removeKey(DRAFT_KEY);
+}
+
+// ── Pointer to the most recent result, used for the "Welcome back"
+// banner and for restoring after a same-day refresh ───────────────
+export function getLastResultPointer() {
+  return readJSON(LAST_RESULT_KEY);
+}
+export function saveLastResultPointer(code, date) {
+  writeJSON(LAST_RESULT_KEY, { code, date });
+}
+export function clearLastResultPointer() {
+  removeKey(LAST_RESULT_KEY);
+}
+
+// ── Per-result action checkbox state (which "Next Steps" the user
+// has ticked off) ─────────────────────────────────────────────────
+export function getActions(code) {
+  if (!CODE_REGEX.test(code)) return {};
+  return readJSON(ACTIONS_KEY_PREFIX + code, {});
+}
+export function saveActions(code, actions) {
+  if (!CODE_REGEX.test(code)) return;
+  writeJSON(ACTIONS_KEY_PREFIX + code, actions);
 }
 
 // Asks the browser to mark this origin's storage as persistent so it

@@ -67,7 +67,7 @@ export default function CompareView({ onBack, onLogoClick, initialCode }) {
     : 0;
 
   return (
-    <div className="min-h-screen bg-[#F4FAFB]">
+    <div className="min-h-screen bg-surface">
       <Nav onLogoClick={onLogoClick}>
         <button onClick={onBack} className="btn-secondary px-3.5 py-[7px]">&larr; Back to Report</button>
       </Nav>
@@ -120,14 +120,14 @@ export default function CompareView({ onBack, onLogoClick, initialCode }) {
                 </div>
               )}
               {improvedCount === 0 && declinedCount === 0 && (
-                <div className="bg-[#E3E9EA] px-3.5 py-1.5 text-[13px] font-semibold text-gray-500">
+                <div className="bg-surface-divider px-3.5 py-1.5 text-[13px] font-semibold text-gray-500">
                   No status changes
                 </div>
               )}
             </div>
 
             {/* Parameter Comparison Cards */}
-            <div className="flex flex-col gap-[1px] bg-[#E3E9EA]">
+            <div className="flex flex-col gap-[1px] bg-surface-divider">
               {PARAM_ORDER.map((key) => {
                 const meta = PARAM_META[key];
                 const pA = resultA.parameters[key];
@@ -149,8 +149,8 @@ export default function CompareView({ onBack, onLogoClick, initialCode }) {
                       )}
                     </div>
 
-                    <div className="flex gap-[1px] bg-[#E3E9EA]">
-                      <div className="flex-1 bg-[#EFF5F6] p-3 text-center">
+                    <div className="flex gap-[1px] bg-surface-divider">
+                      <div className="flex-1 bg-surface-mid p-3 text-center">
                         <div className="text-[10px] text-gray-500 mb-1 uppercase tracking-wide">Before</div>
                         <div className="font-serif text-xl font-bold text-gray-900">{pA.value}</div>
                         <div className="mt-2">
@@ -160,7 +160,7 @@ export default function CompareView({ onBack, onLogoClick, initialCode }) {
                         </div>
                       </div>
                       <div className="flex items-center text-gray-300 px-2">&rarr;</div>
-                      <div className="flex-1 bg-[#EFF5F6] p-3 text-center">
+                      <div className="flex-1 bg-surface-mid p-3 text-center">
                         <div className="text-[10px] text-gray-500 mb-1 uppercase tracking-wide">After</div>
                         <div className="font-serif text-xl font-bold text-gray-900">{pB.value}</div>
                         <div className="mt-2">

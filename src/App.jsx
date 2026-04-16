@@ -4,8 +4,19 @@ import ResultsDashboard from "./components/ResultsDashboard";
 import CompareView from "./components/CompareView";
 import { analyzeReport } from "./lib/analyzeReport";
 import { narratives } from "./lib/narratives";
-import { generateCode, saveResult, loadResult, cleanupExpiredResults, requestStoragePersistence } from "./lib/resultStore";
-import { DRAFT_KEY } from "./lib/constants";
+import {
+  generateCode,
+  saveResult,
+  loadResult,
+  cleanupExpiredResults,
+  requestStoragePersistence,
+  getDraft,
+  saveDraft,
+  clearDraft,
+  getLastResultPointer,
+  saveLastResultPointer,
+  clearLastResultPointer,
+} from "./lib/resultStore";
 
 function applyModifier(narrative, key) {
   const mod = narratives[key];
@@ -24,7 +35,11 @@ function getNarrative(snippetKey, urgencyFlag, ageFlag) {
   return result;
 }
 
-const LAST_RESULT_KEY = "fm_last_result";
+// One canonical date format for storage + display, so the "Welcome
+// back" banner comparison ("is this from today?") is reliable.
+function todayLabel() {
+  return new Date().toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" });
+}
 
 export default function App() {
   const [screen, setScreen] = useState("input");
@@ -49,17 +64,14 @@ export default function App() {
   // day — same-day refreshes (e.g. after a failed scan) shouldn't trigger it.
   useEffect(() => {
     cleanupExpiredResults();
-    try {
-      const last = JSON.parse(localStorage.getItem(LAST_RESULT_KEY));
-      if (!last?.code || !last?.date) return;
-      if (!loadResult(last.code)) {
-        localStorage.removeItem(LAST_RESULT_KEY);
-        return;
-      }
-      setFmCode(last.code);
-      const today = new Date().toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" });
-      if (last.date !== today) setLastResultDate(last.date);
-    } catch {}
+    const last = getLastResultPointer();
+    if (!last?.code || !last?.date) return;
+    if (!loadResult(last.code)) {
+      clearLastResultPointer();
+      return;
+    }
+    setFmCode(last.code);
+    if (last.date !== todayLabel()) setLastResultDate(last.date);
   }, []);
 
   function handleSubmit(formData) {
@@ -80,12 +92,7 @@ export default function App() {
     setActiveSnippet(snippet);
     setFmCode(code);
     setLastResultDate(null);
-    try {
-      localStorage.setItem(LAST_RESULT_KEY, JSON.stringify({
-        code,
-        date: new Date().toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" }),
-      }));
-    } catch {}
+    saveLastResultPointer(code, todayLabel());
     setScreen("results");
   }
 
@@ -122,10 +129,8 @@ export default function App() {
     setLastResultDate(null);
     setLookupError("");
     setInputEntryMode("scan");
-    try {
-      localStorage.removeItem(DRAFT_KEY);
-      localStorage.removeItem(LAST_RESULT_KEY);
-    } catch {}
+    clearDraft();
+    clearLastResultPointer();
     setScreen("input");
   }
 
@@ -160,16 +165,14 @@ export default function App() {
               }
               const inputs = reportResult.originalInputs || {};
               const subtype = reportResult.parameters?.motility?.subtype || inputs.motilitySubtype || null;
-              try {
-                const existing = JSON.parse(localStorage.getItem(DRAFT_KEY) || "{}");
-                localStorage.setItem(DRAFT_KEY, JSON.stringify({
-                  ...existing,
-                  values: draftValues,
-                  age: inputs.age != null ? String(inputs.age) : (existing.age || ""),
-                  monthsTrying: inputs.ttcMonths != null ? String(inputs.ttcMonths) : (existing.monthsTrying || ""),
-                  motilitySubtype: subtype,
-                }));
-              } catch {}
+              const existing = getDraft();
+              saveDraft({
+                ...existing,
+                values: draftValues,
+                age: inputs.age != null ? String(inputs.age) : (existing.age || ""),
+                monthsTrying: inputs.ttcMonths != null ? String(inputs.ttcMonths) : (existing.monthsTrying || ""),
+                motilitySubtype: subtype,
+              });
             }
             setInputEntryMode("manual");
             setScreen("input");

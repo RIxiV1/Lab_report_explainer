@@ -63,8 +63,6 @@ export const TMSC_TIERS = {
 
 export const FM_CODE_REGEX = /^FM-[A-Z2-9]{4}-[A-Z2-9]{4}$/;
 
-export const DRAFT_KEY = "fm_input_draft";
-
 export const FERTIQ_URL = "https://www.formen.health/products/fertiq-male-fertility-supplement?utm_source=lab-report&utm_medium=tool&utm_campaign=fertiq";
 
 // Summary state config — descriptive, not evaluative.

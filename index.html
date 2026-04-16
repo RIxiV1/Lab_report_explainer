@@ -6,6 +6,20 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
+
+    <!--
+      Content Security Policy — defence-in-depth against XSS.
+      'unsafe-eval' is required by pdfjs-dist; 'wasm-unsafe-eval' by
+      tesseract.js. 'unsafe-inline' on style is required by Tailwind +
+      React's inline style attribute usage. Scripts from any other
+      origin are blocked, which is the actual XSS-mitigation win.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' blob:; worker-src 'self' blob:; child-src 'self' blob:; base-uri 'self'; form-action 'self'; object-src 'none'"
+    />
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta name="description" content="Understand your semen analysis report in plain English. Get personalised next steps based on WHO 2021 guidelines. Free, private tool by ForMen Health." />
     <meta name="keywords" content="semen analysis, sperm test, male fertility, WHO 2021, sperm count, motility, morphology, fertility report, ForMen Health" />
     <meta name="author" content="ForMen Health" />

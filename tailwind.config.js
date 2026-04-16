@@ -50,9 +50,12 @@ export default {
           900: "#091E42",
         },
         // Surface hierarchy for tonal layering
-        surface:        "#F4FAFB",
-        "surface-low":  "#EBF5F7",
-        "surface-high": "#DFE1E6",
+        surface:           "#F4FAFB",
+        "surface-low":     "#EBF5F7",
+        "surface-mid":     "#EFF5F6",
+        "surface-divider": "#E3E9EA",
+        "surface-high":    "#DFE1E6",
+        "surface-hover":   "#FAFBFD",
         cream: "#F4FAFB",
         sand: {
           100: "#EBF5F7",
