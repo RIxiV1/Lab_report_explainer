@@ -26,17 +26,17 @@ function fuzzy(word) {
   return word.split("").map((c) => c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s*");
 }
 
-const GAP = "[^\\d\\n]{0,60}?";
+const GAP = "[^\\d\\n]{0,80}?";
 
 // Sanity bounds — reject values that are physically impossible.
 // This catches lab data-entry errors and mis-parses.
 const SANITY = {
   spermCount: { min: 0, max: 900 },
-  motility:   { min: 0, max: 100 },
+  motility: { min: 0, max: 100 },
   morphology: { min: 0, max: 100 },
-  volume:     { min: 0, max: 30 },
-  pH:         { min: 6, max: 9 },
-  wbc:        { min: 0, max: 100 },
+  volume: { min: 0, max: 30 },
+  pH: { min: 6, max: 9 },
+  wbc: { min: 0, max: 100 },
 };
 
 const PARAMS = [
@@ -51,7 +51,12 @@ const PARAMS = [
       "sperm concentration",
       "sperm density",
       "sperm count",
+      "sperm number",
     ],
+    // "Density (million per ml)" — used by CREATE Fertility and some
+    // UK labs. Bare "density" collides with urine specific gravity, so
+    // we require "million" in context to confirm it's sperm density.
+    fallbackRegex: /\bdensity\s*\(?[^)\d\n]*million[^)\d\n]*\)?\s*([\d.]+)/i,
   },
   {
     key: "motility",
@@ -60,12 +65,14 @@ const PARAMS = [
     // "all progressive" (a+b), threshold ≥30% — different threshold,
     // so we tag which type was matched and the analyzer grades accordingly.
     keywords: [
-      { kw: "total motility",   subtype: "total" },
-      { kw: "total motile",     subtype: "total" },
-      { kw: "motility total",   subtype: "total" },
-      { kw: "all progressive",  subtype: "progressive" },
+      { kw: "total motility", subtype: "total" },
+      { kw: "total motile", subtype: "total" },
+      { kw: "motility total", subtype: "total" },
+      { kw: "actively motile", subtype: "total" },
+      { kw: "active motility", subtype: "total" },
+      { kw: "all progressive", subtype: "progressive" },
       { kw: "progressive motility", subtype: "progressive" },
-      { kw: "motility",         subtype: "total" }, // bare "motility" defaults to total
+      { kw: "motility", subtype: "total" },
     ],
     guard: (matchedText) => !/immotile|non[-\s]*progressive/.test(matchedText.toLowerCase()),
   },
@@ -74,6 +81,8 @@ const PARAMS = [
     keywords: [
       "normal forms",
       "normal morphology",
+      "strict morphology",
+      "strict criteria",
       "morphology",
       "kruger",
     ],

@@ -18,6 +18,7 @@ import {
   clearLastResultPointer,
 } from "./lib/resultStore";
 import { todayLabel } from "./lib/uiUtils";
+import { getSavedLang, saveLang } from "./lib/i18n";
 
 function applyModifier(narrative, key) {
   const mod = narratives[key];
@@ -43,6 +44,12 @@ export default function App() {
   const [fmCode, setFmCode] = useState(null);
   const [lastResultDate, setLastResultDate] = useState(null);
   const [lookupError, setLookupError] = useState("");
+  const [lang, setLang] = useState(getSavedLang);
+
+  function handleLangChange(code) {
+    setLang(code);
+    saveLang(code);
+  }
   // Which input mode the form should open in. Defaults to "scan" for new
   // sessions, but flips to "manual" when the user is coming back from a
   // result via "Edit Details" — they already have values to tweak.
@@ -147,6 +154,8 @@ export default function App() {
           result={reportResult}
           snippet={activeSnippet}
           fmCode={fmCode}
+          lang={lang}
+          onLangChange={handleLangChange}
           onReset={handleReset}
           onBackToInput={() => {
             setLookupError("");

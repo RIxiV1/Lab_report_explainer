@@ -54,9 +54,102 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <!-- JSON-LD structured data for rich search results -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "ForMen Lab Report Explainer",
+      "url": "https://formen.health/pages/lab-report-explainer",
+      "description": "Understand your semen analysis report in simple words. Upload your PDF or enter values manually. Get personalised next steps based on WHO 2021 guidelines.",
+      "applicationCategory": "HealthApplication",
+      "operatingSystem": "Any",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "INR" },
+      "provider": {
+        "@type": "Organization",
+        "name": "ForMen Health",
+        "url": "https://www.formen.health"
+      },
+      "featureList": [
+        "WHO 2021 reference ranges",
+        "PDF and image scanning with OCR",
+        "100% private — nothing uploaded to any server",
+        "No signup or login required",
+        "Available in English and Hinglish"
+      ]
+    }
+    </script>
+
+    <!-- Pre-rendered critical CSS for the shell content below.
+         Keeps the pre-rendered hero visible and styled before the
+         main CSS bundle loads. React replaces #root on hydration. -->
+    <style>
+      .prerender-shell {
+        max-width: 640px;
+        margin: 0 auto;
+        padding: 80px 24px 48px;
+        font-family: -apple-system, 'Segoe UI', sans-serif;
+        color: #161d1e;
+        text-align: center;
+      }
+      .prerender-shell h1 {
+        font-size: clamp(32px, 6vw, 48px);
+        font-weight: 700;
+        line-height: 1.1;
+        margin-bottom: 16px;
+      }
+      .prerender-shell h1 span { color: #767682; font-style: italic; font-weight: 400; }
+      .prerender-shell .sub { font-size: 15px; color: #767682; margin-bottom: 24px; line-height: 1.6; }
+      .prerender-shell .trust { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; margin-bottom: 32px; }
+      .prerender-shell .trust span { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #42526E; background: #F4FAFB; padding: 6px 14px; }
+      .prerender-shell .steps { font-size: 13px; color: #767682; margin-bottom: 32px; }
+      .prerender-shell .steps strong { color: #36458E; }
+      .prerender-shell .cta { display: inline-block; background: linear-gradient(135deg, #36458E, #1d2d76); color: #fff; padding: 14px 32px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.15em; text-decoration: none; cursor: pointer; }
+      .prerender-shell .privacy { font-size: 11px; color: #8BB992; margin-top: 16px; }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Pre-rendered hero content — visible before JS loads.
+         Gives crawlers and JS-disabled users real content + semantic
+         structure. React replaces this entirely on mount.
+         All critical SEO keywords (semen analysis, WHO 2021, sperm
+         count, motility, morphology) appear in crawlable HTML. -->
+    <div id="root">
+      <div class="prerender-shell" role="main">
+        <h1><span>Understand Your</span><br/>Semen Analysis</h1>
+        <p class="sub">
+          Upload your report or enter values manually. We explain every number
+          in simple words and tell you what to do next — based on WHO 2021 guidelines.
+        </p>
+
+        <div class="trust">
+          <span>🔒 100% Private</span>
+          <span>📋 WHO 2021</span>
+          <span>🚫 No Signup</span>
+          <span>📱 Works on Phone</span>
+        </div>
+
+        <p class="steps">
+          <strong>1.</strong> Upload PDF or photo &nbsp;→&nbsp;
+          <strong>2.</strong> Review your explanation &nbsp;→&nbsp;
+          <strong>3.</strong> Get personalised next steps
+        </p>
+
+        <a href="#" class="cta" onclick="return false;">Loading App…</a>
+        <p class="privacy">Stays on your phone · nobody else sees it</p>
+      </div>
+    </div>
+
+    <noscript>
+      <div style="max-width:600px;margin:80px auto;padding:24px;font-family:sans-serif;text-align:center;">
+        <h1>ForMen Lab Report Explainer</h1>
+        <p>This tool requires JavaScript to scan PDFs and analyse your semen analysis report.</p>
+        <p>Please enable JavaScript in your browser settings, then reload this page.</p>
+        <p><a href="https://www.formen.health">Visit ForMen Health</a></p>
+      </div>
+    </noscript>
+
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

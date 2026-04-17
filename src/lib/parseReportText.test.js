@@ -292,6 +292,39 @@ Vitality (Eosin-Nigrosin stain) 5.00 % >54`;
     expect(r.results.wbc).toBe(0.4);
   });
 
+  // ── New keyword coverage ─────────────────────────────────────────
+
+  it("handles 'sperm number' phrasing", () => {
+    const r = parseReportText("Sperm Number: 28 million/mL");
+    expect(r.results.spermCount).toBe(28);
+  });
+
+  it("handles 'actively motile' phrasing", () => {
+    const r = parseReportText("Actively Motile: 48%");
+    expect(r.results.motility).toBe(48);
+  });
+
+  it("handles 'active motility' phrasing", () => {
+    const r = parseReportText("Active Motility: 52%");
+    expect(r.results.motility).toBe(52);
+  });
+
+  it("handles 'strict morphology' phrasing", () => {
+    const r = parseReportText("Strict Morphology: 5%");
+    expect(r.results.morphology).toBe(5);
+  });
+
+  it("handles 'strict criteria' phrasing", () => {
+    const r = parseReportText("Strict Criteria: 4%");
+    expect(r.results.morphology).toBe(4);
+  });
+
+  it("wider GAP (80 chars) catches values in wide tables", () => {
+    const text = "Sperm Count                                                              45 million/mL";
+    const r = parseReportText(text);
+    expect(r.results.spermCount).toBe(45);
+  });
+
   it("extracts Dr Lal PathLabs format correctly", () => {
     const text = `
       Ejaculate Volume 4.00 mL

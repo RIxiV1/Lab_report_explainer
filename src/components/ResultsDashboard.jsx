@@ -5,14 +5,16 @@ import { PARAM_ORDER, PARAM_META, VERDICT_CONFIG, TIMELINE_ORDER, FERTIQ_URL } f
 import { getActions, saveActions } from "../lib/resultStore";
 import { useCountUp } from "../lib/useCountUp";
 import { displayValue } from "../lib/uiUtils";
+import { generateReportPdf } from "../lib/generatePdf";
+import { t } from "../lib/i18n";
 
 const CTX_LINES = {
   spermCount: { NORMAL: "Healthy count.", WARNING: "A little low — often improves with changes.", CRITICAL: "There are many ways to improve this." },
-  motility:   { NORMAL: "Sperm are moving well.", WARNING: "A bit low — often improves with better food and habits.", CRITICAL: "This usually responds well to treatment." },
+  motility: { NORMAL: "Sperm are moving well.", WARNING: "A bit low — often improves with better food and habits.", CRITICAL: "This usually responds well to treatment." },
   morphology: { NORMAL: "Shape is fine.", WARNING: "This number is easy to misread. The rest of your report matters more.", CRITICAL: "On its own, this rarely decides the outcome." },
-  volume:     { NORMAL: "Volume is healthy.", WARNING: "Drink more water and check how the sample was collected.", CRITICAL: "Usually fixes with a proper sample collection." },
-  pH:         { NORMAL: "Balanced.", WARNING: "A small finding — nothing serious.", CRITICAL: "Worth showing your doctor." },
-  wbc:        { NORMAL: "No signs of infection.", WARNING: "Mild — usually easy to manage.", CRITICAL: "This can be treated. Talk to your doctor." },
+  volume: { NORMAL: "Volume is healthy.", WARNING: "Drink more water and check how the sample was collected.", CRITICAL: "Usually fixes with a proper sample collection." },
+  pH: { NORMAL: "Balanced.", WARNING: "A small finding — nothing serious.", CRITICAL: "Worth showing your doctor." },
+  wbc: { NORMAL: "No signs of infection.", WARNING: "Mild — usually easy to manage.", CRITICAL: "This can be treated. Talk to your doctor." },
 };
 
 // Share payload deliberately omits raw numeric values.
@@ -36,18 +38,49 @@ function buildWhatsAppText(fmCode, verdictLabel) {
 
 const DOCTOR_URL = "https://www.formen.health/pages/book-doctor-appointment";
 
-const FOOD_TIPS = [
-  { item: "Walnuts, almonds, pumpkin seeds", why: "Zinc + selenium" },
-  { item: "Salmon, sardines", why: "Omega-3" },
-  { item: "Berries, tomatoes, greens", why: "Antioxidants" },
-  { item: "Eggs, lean beef, lentils", why: "B12 + protein" },
+// ── Dynamic tips engine ──────────────────────────────────────────
+// Picks and orders tips based on which parameters are flagged. A user
+// with low motility sees CoQ10 + omega-3 foods first; a user with
+// high WBC sees anti-inflammatory foods first. Everyone gets the
+// baseline tips, just in different priority order.
+//
+// Each tip has English + Hinglish variants. The `targets` array lists
+// which flagged params push that tip to the top.
+
+const DIET_POOL = [
+  { emoji: "🥜", item: "Pumpkin seeds, cashews, chickpeas", why: "Zinc — sperm production", hg: "Kaddu ke beej, kaju, chole — sperm production ke liye zaroori", targets: ["spermCount"] },
+  { emoji: "🐟", item: "Salmon, sardines, walnuts", why: "Omega-3 — cell energy", hg: "Salmon, sardines, akhrot — cell ki energy ke liye", targets: ["motility", "morphology"] },
+  { emoji: "🫐", item: "Berries, tomatoes, dark greens", why: "Antioxidants — protect cells", hg: "Berries, tamatar, green sabzi — cells ko protect karte hain", targets: ["morphology", "wbc"] },
+  { emoji: "🥚", item: "Eggs, paneer, lentils (dal)", why: "B12 + protein", hg: "Ande, paneer, dal — body ke building blocks", targets: [] },
+  { emoji: "🍊", item: "Amla, orange, guava", why: "Vitamin C — absorption", hg: "Amla, santra, amrood — absorption badhate hain", targets: ["wbc"] },
+  { emoji: "🌿", item: "Ashwagandha (supplement or tea)", why: "Supports testosterone", hg: "Ashwagandha — testosterone support karta hai", targets: ["spermCount", "motility"] },
 ];
 
-const LIFESTYLE_TIPS = [
-  "Keep laptops off your lap. Avoid very hot baths.",
-  "Sleep 7–9 hours. Exercise at least 150 minutes a week.",
-  "Cut down on alcohol. Stop smoking if you can.",
+const SWAP_POOL = [
+  { emoji: "🔄", item: "Swap paratha → oats or daliya", why: "More fibre, less oil", hg: "Paratha hatao, oats ya daliya khao — zyada fibre, kam oil", targets: [] },
+  { emoji: "🔄", item: "Swap cold drinks → nimbu paani", why: "Sugar kills sperm", hg: "Cold drink chhodo, nimbu paani piyo — sugar sperm ko nuksaan karta hai", targets: [] },
+  { emoji: "🔄", item: "Swap chai (sugar) → green tea", why: "Antioxidants, less sugar", hg: "Cheeni wali chai kam karo, green tea piyo — antioxidants milte hain", targets: ["morphology", "wbc"] },
 ];
+
+const LIFESTYLE_POOL = [
+  { text: "🛋️ Keep laptops off your lap. Avoid very hot baths.", hg: "🛋️ Laptop hamesha table pe rakho, lap pe nahi. Bahut garam paani se mat nahao.", targets: ["spermCount", "motility"] },
+  { text: "😴 Sleep 7–9 hours. Exercise at least 150 minutes a week.", hg: "😴 7-9 ghante so. Haftey mein kam se kam 150 minute exercise karo.", targets: [] },
+  { text: "🚭 Cut down on alcohol. Stop smoking if you can.", hg: "🚭 Sharaab kam karo. Smoking band kar sako toh best hai.", targets: ["motility", "morphology"] },
+  { text: "💧 Drink 3+ litres of water daily to flush inflammation.", hg: "💧 Din mein 3 litre se zyada paani piyo — infection flush hota hai.", targets: ["wbc"] },
+  { text: "🩲 Wear loose cotton underwear — tight boxers trap heat.", hg: "🩲 Loose cotton underwear pehno — tight underwear garmi badhata hai.", targets: ["spermCount"] },
+  { text: "🧘 Manage stress — cortisol directly lowers sperm production.", hg: "🧘 Stress kam karo — cortisol sperm production ko seedha kam karta hai.", targets: ["spermCount", "motility"] },
+];
+
+// Sorts tips so that tips targeting the user's flagged parameters
+// come first, followed by general tips. Deduplicates by emoji.
+function prioritizeTips(pool, flaggedParams) {
+  const scored = pool.map((tip) => ({
+    ...tip,
+    score: tip.targets.filter((t) => flaggedParams.includes(t)).length,
+  }));
+  scored.sort((a, b) => b.score - a.score);
+  return scored;
+}
 
 function TMSCGauge({ value }) {
   const pct = Math.max(2, Math.min(98, (Math.min(value, 50) / 50) * 100));
@@ -79,10 +112,13 @@ function TMSCGauge({ value }) {
   );
 }
 
-export default function ResultsDashboard({ result, snippet, fmCode, onReset, onBackToInput, onCompare }) {
+export default function ResultsDashboard({ result, snippet, fmCode, lang = "en", onLangChange, onReset, onBackToInput, onCompare }) {
   const [copied, setCopied] = useState(false);
   const [checkedActions, setCheckedActions] = useState({});
   const verdictCfg = VERDICT_CONFIG[result.verdict] || VERDICT_CONFIG.ATTENTION;
+  // Map verdict keys to i18n keys for the translated label
+  const verdictI18nKey = { ALL_NORMAL: "verdict_all_normal", ATTENTION: "verdict_attention", ACT_NOW: "verdict_act_now" };
+  const verdictLabel = t(lang, verdictI18nKey[result.verdict] || "verdict_attention");
   const tmsc = result.tmsc;
   // Animated count-up only kicks in when there's a real number to show
   // (>= 1 million). Below that we render "Below 1 million" instead, so
@@ -110,7 +146,26 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
   }
 
   function handleCopy() {
-    navigator.clipboard.writeText(fmCode).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }).catch(() => {});
+    navigator.clipboard.writeText(fmCode)
+      .then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); })
+      .catch(() => {
+        // Clipboard API blocked (HTTP, denied permission, or older browser).
+        // Fall back to execCommand, then prompt as last resort.
+        try {
+          const el = document.createElement("textarea");
+          el.value = fmCode;
+          el.style.position = "fixed";
+          el.style.opacity = "0";
+          document.body.appendChild(el);
+          el.select();
+          document.execCommand("copy");
+          document.body.removeChild(el);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        } catch {
+          window.prompt("Copy this code:", fmCode);
+        }
+      });
   }
 
   function handleWhatsApp() {
@@ -132,7 +187,7 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
 
   return (
     <div className="min-h-screen bg-surface">
-      <Nav sticky className="no-print" onLogoClick={onReset} />
+      <Nav sticky className="no-print" onLogoClick={onReset} lang={lang} onLangChange={onLangChange} />
 
       {/* ══════ HERO ══════ */}
       <section className="bg-brand-900 text-white relative overflow-hidden">
@@ -146,13 +201,13 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
         <div className="max-w-[800px] mx-auto px-6 pt-16 pb-16 relative z-10">
           {/* Eyebrow — frames the block as a summary, not a verdict */}
           <p className="text-[11px] uppercase tracking-[0.2em] text-white/40 mb-3 font-semibold">
-            Summary of your report
+            {t(lang, "hero_eyebrow")}
           </p>
 
           {/* Row 1: Summary state + counts */}
           <div className="flex items-center gap-4 flex-wrap mb-4">
             <h1 className="font-serif text-[clamp(36px,8vw,52px)] leading-none font-bold tracking-tight">
-              {verdictCfg.label}
+              {verdictLabel}
             </h1>
             <div className="flex gap-2">
               {normalCount > 0 && (
@@ -170,8 +225,7 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
 
           {/* Clinical sign-off — explicit that this is not a diagnosis */}
           <p className="text-[11px] text-white/40 mb-6 leading-relaxed max-w-[560px]">
-            A simple summary of your report, compared to WHO 2021 ranges.
-            This is not a diagnosis. For any medical decision, please see a doctor.
+            {t(lang, "hero_disclaimer")}
           </p>
 
           {/* Row 2: Short narrative (2 sentences only) */}
@@ -187,11 +241,11 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
               instead — more honest and less alarming. */}
           {tmsc && (
             <div className="mb-10 max-w-[500px]">
-              <p className="text-[10px] text-white/30 uppercase tracking-wider mb-2">Total Motile Sperm Count</p>
+              <p className="text-[10px] text-white/30 uppercase tracking-wider mb-2">{t(lang, "hero_tmsc_label")}</p>
               <div className="flex items-baseline gap-2">
                 {tmsc.value < 1 ? (
                   <span className="font-serif text-[clamp(40px,8vw,56px)] font-bold text-white leading-none tracking-tight">
-                    Below 1 million
+                    {t(lang, "hero_below_one")}
                   </span>
                 ) : (
                   <>
@@ -215,13 +269,20 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
           {/* Buttons */}
           <div className="no-print flex gap-2 flex-wrap">
             <button onClick={() => window.print()} className="bg-white text-brand-900 font-semibold px-5 py-2.5 text-[11px] uppercase tracking-wide cursor-pointer hover:bg-gray-100 transition-colors" style={{ boxShadow: '0 4px 16px rgba(17,24,82,0.2)' }}>
-              Print Report
+              {t(lang, "btn_print")}
+            </button>
+            <button
+              onClick={() => generateReportPdf({ result, fmCode, verdictLabel: verdictCfg.label, tmsc })}
+              className="bg-white text-brand-900 font-semibold px-5 py-2.5 text-[11px] uppercase tracking-wide cursor-pointer hover:bg-gray-100 transition-colors"
+              style={{ boxShadow: '0 4px 16px rgba(17,24,82,0.2)' }}
+            >
+              {t(lang, "btn_download_pdf")}
             </button>
             <button onClick={handleWhatsApp} className="bg-brand-500 text-white font-semibold px-5 py-2.5 text-[11px] uppercase tracking-wide cursor-pointer hover:bg-[#283573] transition-colors">
-              Share
+              {t(lang, "btn_share")}
             </button>
             <button onClick={onBackToInput} className="text-white/40 hover:text-white/80 font-semibold px-5 py-2.5 text-[11px] uppercase tracking-wide cursor-pointer bg-transparent transition-colors" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
-              Edit Details
+              {t(lang, "btn_edit")}
             </button>
           </div>
         </div>
@@ -236,9 +297,9 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
               baseline so it reads as a stamp/source, not a floating
               UI label. Lower opacity, smaller letter-spacing. */}
           <div className="mb-6 flex items-end gap-3 flex-wrap">
-            <h2 className="font-serif text-[24px] font-bold text-gray-900 tracking-tight leading-none">Your Results</h2>
+            <h2 className="font-serif text-[24px] font-bold text-gray-900 tracking-tight leading-none">{t(lang, "section_your_results")}</h2>
             <span className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold leading-none translate-y-[-2px]">
-              measured against WHO 2021
+              {t(lang, "section_who_stamp")}
             </span>
           </div>
           {/* items-start = an expanded card grows down without dragging
@@ -294,21 +355,21 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
             <div>
               <p className="font-serif text-[20px] font-bold text-gray-900 mb-1">
                 {result.verdict === "ALL_NORMAL"
-                  ? "Normal numbers aren't the whole picture"
+                  ? t(lang, "cta_normal_title")
                   : result.verdict === "ACT_NOW"
-                    ? "These results need a doctor's eyes"
-                    : "Talk to a fertility doctor"}
+                    ? t(lang, "cta_act_now_title")
+                    : t(lang, "cta_attention_title")}
               </p>
               <p className="text-[13px] text-gray-500 max-w-[420px] leading-relaxed">
                 {result.verdict === "ALL_NORMAL"
-                  ? "A standard semen analysis can't see DNA quality, hormone levels, or your partner's side. If you've been trying for a while, a 15-minute call is the fastest way to find out what to test next."
+                  ? t(lang, "cta_normal_body")
                   : result.verdict === "ACT_NOW"
-                    ? "Don't wait. The findings here have well-established treatments — but only a fertility doctor can tell you which one fits your case."
-                    : "A 15-minute call. A doctor will go through your exact numbers with you and decide if anything needs follow-up."}
+                    ? t(lang, "cta_act_now_body")
+                    : t(lang, "cta_attention_body")}
               </p>
             </div>
             <a href={DOCTOR_URL} target="_blank" rel="noopener noreferrer" className="btn-primary shrink-0 no-print">
-              Book Free Call
+              {t(lang, "btn_book_call")}
             </a>
           </div>
         </section>
@@ -316,7 +377,7 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
         {/* ── Next Steps ── */}
         {snippet?.actions && snippet.actions.length > 0 && (
           <section className="mb-14">
-            <h2 className="font-serif text-[24px] font-bold text-gray-900 tracking-tight mb-5">Next Steps</h2>
+            <h2 className="font-serif text-[24px] font-bold text-gray-900 tracking-tight mb-5">{t(lang, "section_next_steps")}</h2>
             <div className="card-tonal overflow-hidden">
               {TIMELINE_ORDER.map((timeline, index) => {
                 const items = actionGroups[timeline];
@@ -375,33 +436,85 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
           </section>
         )}
 
-        {/* ── While You Wait — single compact block ── */}
+        {/* ── Dynamic Healthy Habits — result-aware ── */}
         <section className="mb-14">
-          <h2 className="font-serif text-[24px] font-bold text-gray-900 tracking-tight mb-5">Healthy Habits</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-[1px] bg-surface-divider">
-            <div className="bg-white p-5">
-              <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-3">Diet</p>
-              {FOOD_TIPS.map((tip, i) => (
-                <p key={i} className="text-[12px] text-gray-700 mb-1.5 last:mb-0">
-                  <span className="font-semibold text-gray-900">{tip.item}</span>
-                  <span className="text-gray-500"> — {tip.why}</span>
-                </p>
-              ))}
-            </div>
-            <div className="bg-white p-5">
-              <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-3">Lifestyle</p>
-              {LIFESTYLE_TIPS.map((tip, i) => (
-                <p key={i} className="text-[12px] text-gray-600 mb-1.5 last:mb-0">{tip}</p>
-              ))}
-            </div>
-          </div>
+          <h2 className="font-serif text-[24px] font-bold text-gray-900 tracking-tight mb-5">{t(lang, "section_healthy_habits")}</h2>
+          {(() => {
+            // Which params are non-normal → drives tip priority
+            const flagged = providedKeys.filter((k) => result.parameters[k]?.status !== "NORMAL");
+            const dietTips = prioritizeTips([...DIET_POOL, ...SWAP_POOL], flagged);
+            const lifeTips = prioritizeTips(LIFESTYLE_POOL, flagged);
+            const isHg = lang === "hg";
+            const allNormal = flagged.length === 0;
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-[1px] bg-surface-divider">
+                <div className="bg-white p-5">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-1">
+                    {isHg
+                      ? (allNormal ? "Aise Hi Strong Raho" : "Kya Khayen")
+                      : (allNormal ? "Keep It Up" : "Diet")}
+                  </p>
+                  {allNormal && (
+                    <p className="text-[11px] text-gray-500 mb-3">
+                      {isHg
+                        ? "Sab theek hai — ye tips follow karte raho taaki numbers strong rahein."
+                        : "Your numbers look good. These tips help keep them that way."}
+                    </p>
+                  )}
+                  {dietTips.map((tip, i) => (
+                    <p key={i} className="text-[12px] text-gray-700 mb-2 last:mb-0 leading-relaxed">
+                      <span className="mr-1.5">{tip.emoji}</span>
+                      {isHg && tip.hg ? (
+                        <span className="text-gray-800">{tip.hg}</span>
+                      ) : (
+                        <>
+                          <span className="font-semibold text-gray-900">{tip.item}</span>
+                          <span className="text-gray-500"> — {tip.why}</span>
+                        </>
+                      )}
+                      {tip.score > 0 && (
+                        <span className="ml-1.5 text-[9px] text-wellness-600 font-bold uppercase tracking-wide">
+                          {isHg ? "tumhare liye" : "for you"}
+                        </span>
+                      )}
+                    </p>
+                  ))}
+                </div>
+                <div className="bg-white p-5">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-1">
+                    {isHg
+                      ? (allNormal ? "Routine Jaari Rakho" : "Daily Routine")
+                      : (allNormal ? "Stay the Course" : "Lifestyle")}
+                  </p>
+                  {allNormal && (
+                    <p className="text-[11px] text-gray-500 mb-3">
+                      {isHg
+                        ? "Ye healthy habits follow karte raho — consistency hi key hai."
+                        : "Consistency is key. Keep these habits going."}
+                    </p>
+                  )}
+                  {lifeTips.map((tip, i) => (
+                    <p key={i} className="text-[12px] text-gray-600 mb-2 last:mb-0 leading-relaxed">
+                      {isHg && tip.hg ? tip.hg : tip.text}
+                      {tip.score > 0 && (
+                        <span className="ml-1.5 text-[9px] text-wellness-600 font-bold uppercase tracking-wide">
+                          {isHg ? "tumhare liye" : "for you"}
+                        </span>
+                      )}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </section>
 
         {/* ── Footer ── */}
         <div className="py-5" style={{ borderTop: '1px solid rgba(198,197,210,0.15)' }}>
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
             <div className="text-left">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Your save code</p>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wide">{t(lang, "footer_save_code")}</p>
               <p className="font-mono text-base font-bold text-gray-800 tracking-widest">{fmCode}</p>
             </div>
             <div className="flex items-center gap-3 text-[11px] no-print">
@@ -413,7 +526,7 @@ export default function ResultsDashboard({ result, snippet, fmCode, onReset, onB
             </div>
           </div>
           <p className="text-[11px] text-gray-500 mt-2 leading-relaxed max-w-[480px] no-print">
-            Save this code to come back to your report on this phone — no signup, no password. Tap "Reopen a previous report" on the home screen.
+            {t(lang, "footer_save_hint")}
           </p>
         </div>
       </div>

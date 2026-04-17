@@ -40,14 +40,34 @@ import { PARAM_ORDER, PARAM_META, REQUIRED_PARAMS, TMSC_TIERS } from "./constant
 // - total motility (a+b+c): normal ≥42%, warning 30–41%   [WHO 2021 / convention]
 // - progressive motility (a+b): normal ≥30%, warning 20–29% [WHO 2021 / convention]
 // The parser tags which variant was matched so we grade correctly.
-const THRESHOLDS = {
-  spermCount:          { normalMin: 16,  warningMin: 5    }, // 16 = WHO 2021 ref. limit; 5 = clinical convention
-  motilityTotal:       { normalMin: 42,  warningMin: 30   }, // 42 = WHO 2021;            30 = clinical convention
-  motilityProgressive: { normalMin: 30,  warningMin: 20   }, // 30 = WHO 2021;            20 = clinical convention
-  morphology:          { normalMin: 4,   warningMin: 2    }, // 4  = WHO 2021;            2  = clinical convention
-  wbc:                 { normalMax: 1.0, warningMax: 2.0  }, // 1.0 = WHO 2021;           2.0 = clinical convention (suggests infection workup)
-  // volume and pH use dedicated classifiers below (range-based)
+// WHO 2021 (6th edition) — current standard.
+const THRESHOLDS_2021 = {
+  spermCount:          { normalMin: 16,  warningMin: 5    },
+  motilityTotal:       { normalMin: 42,  warningMin: 30   },
+  motilityProgressive: { normalMin: 30,  warningMin: 20   },
+  morphology:          { normalMin: 4,   warningMin: 2    },
+  wbc:                 { normalMax: 1.0, warningMax: 2.0  },
+  volumeNormalMin: 1.4,
 };
+
+// WHO 2010 (5th edition) — many Indian labs still print these ranges.
+const THRESHOLDS_2010 = {
+  spermCount:          { normalMin: 15,  warningMin: 5    },
+  motilityTotal:       { normalMin: 40,  warningMin: 25   },
+  motilityProgressive: { normalMin: 32,  warningMin: 20   },
+  morphology:          { normalMin: 4,   warningMin: 2    },
+  wbc:                 { normalMax: 1.0, warningMax: 2.0  },
+  volumeNormalMin: 1.5,
+};
+
+export const WHO_VERSIONS = {
+  "2021": { label: "WHO 2021 (6th Ed.)", thresholds: THRESHOLDS_2021 },
+  "2010": { label: "WHO 2010 (5th Ed.)", thresholds: THRESHOLDS_2010 },
+};
+
+function getThresholds(whoVersion) {
+  return WHO_VERSIONS[whoVersion]?.thresholds || THRESHOLDS_2021;
+}
 
 function classifySimple(value, normalMin, warningMin) {
   if (value >= normalMin) return "NORMAL";
@@ -66,8 +86,8 @@ function classifyInverted(value, normalMax, warningMax) {
 // - 0.5 mL warning line: CLINICAL CONVENTION (not WHO). Below 0.5 mL
 //   is hypospermia, often points to ductal/collection issues.
 // No upper bound — high volume isn't pathological per WHO 2021.
-function classifyVolume(value) {
-  if (value >= 1.4) return "NORMAL";
+function classifyVolume(value, volumeNormalMin = 1.4) {
+  if (value >= volumeNormalMin) return "NORMAL";
   if (value >= 0.5) return "WARNING";
   return "CRITICAL";
 }
@@ -84,17 +104,17 @@ function classifyPH(value) {
   return "CRITICAL";
 }
 
-function getStatus(param, value, subtype) {
+function getStatus(param, value, subtype, thresholds) {
   switch (param) {
-    case "spermCount": return classifySimple(value, THRESHOLDS.spermCount.normalMin, THRESHOLDS.spermCount.warningMin);
+    case "spermCount": return classifySimple(value, thresholds.spermCount.normalMin, thresholds.spermCount.warningMin);
     case "motility": {
-      const t = subtype === "progressive" ? THRESHOLDS.motilityProgressive : THRESHOLDS.motilityTotal;
+      const t = subtype === "progressive" ? thresholds.motilityProgressive : thresholds.motilityTotal;
       return classifySimple(value, t.normalMin, t.warningMin);
     }
-    case "morphology": return classifySimple(value, THRESHOLDS.morphology.normalMin, THRESHOLDS.morphology.warningMin);
-    case "volume":     return classifyVolume(value);
+    case "morphology": return classifySimple(value, thresholds.morphology.normalMin, thresholds.morphology.warningMin);
+    case "volume":     return classifyVolume(value, thresholds.volumeNormalMin);
     case "pH":         return classifyPH(value);
-    case "wbc":        return classifyInverted(value, THRESHOLDS.wbc.normalMax, THRESHOLDS.wbc.warningMax);
+    case "wbc":        return classifyInverted(value, thresholds.wbc.normalMax, thresholds.wbc.warningMax);
     default:           return "NORMAL";
   }
 }
@@ -136,7 +156,8 @@ export function calculateTMSC(volume, spermCount, motility) {
 }
 
 export function analyzeReport(inputs) {
-  const { ttcMonths, age, motilitySubtype } = inputs;
+  const { ttcMonths, age, motilitySubtype, whoVersion = "2021" } = inputs;
+  const thresholds = getThresholds(whoVersion);
 
   const parameters = {};
   const statuses = {};
@@ -146,7 +167,7 @@ export function analyzeReport(inputs) {
     const value = inputs[p];
     if (!hasValue(value)) continue;
     const subtype = p === "motility" ? motilitySubtype : undefined;
-    const status = getStatus(p, value, subtype);
+    const status = getStatus(p, value, subtype, thresholds);
     statuses[p] = status;
     const { whoRange, unit } = PARAM_META[p];
     const paramData = { value, status, whoRange, unit };

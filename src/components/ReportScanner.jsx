@@ -583,6 +583,7 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
           ref={fileInputRef}
           accept="application/pdf,image/*"
           className="hidden"
+          aria-label="Upload lab report (PDF or image)"
           onChange={(e) => { if (e.target.files?.length) handleFile(e.target.files[0]); }}
         />
       </div>

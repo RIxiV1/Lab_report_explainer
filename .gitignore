@@ -5,6 +5,18 @@ dist/
 *.local
 .gemini/
 .claude/
+
+# Planning artifacts (AI-generated)
 implementation_plan.md
 task.md
 walkthrough.md
+logo_fix_plan.md
+
+# IDE settings
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
