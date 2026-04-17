@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { REQUIRED_FIELDS, FM_CODE_REGEX } from "../lib/constants";
+import { WHO_VERSIONS } from "../lib/analyzeReport";
 import { getDraft, saveDraft, clearDraft } from "../lib/resultStore";
 import Nav from "./Nav";
 import ReportScanner from "./ReportScanner";
@@ -28,6 +29,7 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
   const [fmCode, setFmCode] = useState("");
   const [fmCodeError, setFmCodeError] = useState("");
   const [showManagePanel, setShowManagePanel] = useState(false);
+  const [whoVersion, setWhoVersion] = useState(draft.whoVersion || "2021");
   // Remembers scan metadata across mode switches:
   // - subtypes: which motility variant was matched (total vs progressive)
   //   so the classifier uses the right WHO threshold (42% vs 30%).
