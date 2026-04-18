@@ -142,33 +142,42 @@
     box-shadow: 0 24px 48px rgba(22, 29, 30, 0.06);
   }
 
-  /* ── Tonal card ── */
-  .card-tonal {
+  /* ── Soft card — Clean flat look with subtle shadow (Reference Match) ── */
+  .card-soft {
     background: #ffffff;
-    box-shadow: 0 20px 40px rgba(17, 24, 82, 0.06);
-    transition: box-shadow 0.3s cubic-bezier(0.2, 0, 0, 1), 
-                transform 0.3s cubic-bezier(0.2, 0, 0, 1);
+    box-shadow: 0 4px 20px rgba(17, 24, 82, 0.04);
+    transition: all 0.3s ease;
   }
-  .card-tonal:hover {
-    box-shadow: 0 24px 48px rgba(17, 24, 82, 0.09);
+  .card-soft:hover {
+    box-shadow: 0 12px 30px rgba(17, 24, 82, 0.08);
+    transform: translateY(-2px);
   }
 
   /* ── Glassmorphism nav ── */
   .glass-nav {
-    background: rgba(244, 250, 251, 0.78);
+    background: rgba(244, 250, 251, 0.85);
     backdrop-filter: blur(20px) saturate(1.2);
     -webkit-backdrop-filter: blur(20px) saturate(1.2);
-    border-bottom: 1px solid rgba(198, 197, 210, 0.1);
+    border-bottom: 1px solid rgba(198, 197, 210, 0.15);
   }
 
-  /* ── Status accent top border ──
-     Critical uses a desaturated brick (#9A4A2D) rather than an
-     alarm-orange. Communicates "medical priority" without triggering
-     the panic response a saturated red/orange does on a fertility
-     report. The user is already anxious. */
-  .status-border-normal  { border-top: 3px solid #8BB992; }
-  .status-border-warning { border-top: 3px solid #FFB800; }
-  .status-border-critical { border-top: 3px solid #9A4A2D; }
+  /* ── Status accent top border (Apothecary Palette) ── */
+  .status-border-normal  { border-top: 4px solid #6B8E7B; } /* Deep Sage */
+  .status-border-warning { border-top: 4px solid #D49A36; } /* Rich Amber */
+  .status-border-critical { border-top: 4px solid #B85B45; } /* Terracotta */
+
+  /* ── Premium Paper Texture ── */
+  .texture-paper {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  }
+
+  /* ── Layout Centering Utility ── */
+  .content-container {
+    @apply max-w-[1100px] mx-auto px-6;
+  }
+  .content-container-narrow {
+    @apply max-w-[800px] mx-auto px-6;
+  }
 }
 
 /* ── Fade-up animation with editorial timing ── */

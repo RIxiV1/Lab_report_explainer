@@ -15,13 +15,13 @@ const STATUS_BORDER = {
   CRITICAL: "status-border-critical",
 };
 
-// Per-status tonal wash + status-word colour. Wash kept ≤ 5% opacity
-// so the value text contrast still passes WCAG AA. Status word uses
-// the same hue as the top stripe for visual unity.
-const STATUS_WASH = {
-  NORMAL:   { bg: "rgba(139,185,146,0.04)",  word: "text-wellness-800" },
-  WARNING:  { bg: "rgba(255,184,0,0.05)",    word: "text-yellow-800" },
-  CRITICAL: { bg: "rgba(154,74,45,0.05)",    word: "text-orange-700" },
+// Per-status tonal wash + status colour + dot colour. Wash kept ≤ 5%
+// opacity so text contrast still passes WCAG AA. The dot is a stronger
+// visual signal than italic text alone.
+const STATUS_THEME = {
+  NORMAL:   { bg: "rgba(139,185,146,0.04)", word: "text-wellness-600", dot: "#8BB992" },
+  WARNING:  { bg: "rgba(255,184,0,0.05)",   word: "text-yellow-600",   dot: "#FFB800" },
+  CRITICAL: { bg: "rgba(154,74,45,0.05)",   word: "text-orange-600",   dot: "#9A4A2D" },
 };
 
 const STATUS_WORD = {
@@ -30,75 +30,127 @@ const STATUS_WORD = {
   CRITICAL: "needs focus",
 };
 
+function Sparkline({ paramKey, valueStr, status }) {
+  const value = parseFloat(valueStr) || 0;
+  let pct = 50;
+  let normalStart = 50;
+  let normalEnd = 100;
+  
+  if (paramKey === "spermCount") {
+    pct = Math.min(100, (value / 60) * 100);
+    normalStart = (16 / 60) * 100;
+  } else if (paramKey === "motility") {
+    pct = Math.min(100, value);
+    normalStart = 42;
+  } else if (paramKey === "morphology") {
+    pct = Math.min(100, (value / 20) * 100);
+    normalStart = (4 / 20) * 100;
+  } else if (paramKey === "volume") {
+    pct = Math.min(100, (value / 10) * 100);
+    normalStart = 14;
+    normalEnd = 76;
+  } else if (paramKey === "pH") {
+    pct = Math.max(0, Math.min(100, ((value - 6) / 3) * 100));
+    normalStart = 40;
+    normalEnd = 66.6;
+  } else if (paramKey === "wbc") {
+    pct = Math.min(100, (value / 5) * 100);
+    normalStart = 0;
+    normalEnd = 20;
+  }
+
+  const barColor = status === "NORMAL" ? "#6B8E7B" : status === "WARNING" ? "#D49A36" : "#B85B45";
+
+  return (
+    <div className="w-full h-[3px] rounded-full overflow-hidden mb-6 relative bg-brand-900/5">
+      <div 
+        className="absolute top-0 bottom-0 bg-[#6B8E7B]/10" 
+        style={{ left: `${normalStart}%`, width: `${normalEnd - normalStart}%` }} 
+      />
+      <div 
+        className="absolute top-0 bottom-0 left-0 transition-all duration-1000 ease-out" 
+        style={{ width: `${pct}%`, backgroundColor: barColor }} 
+      />
+      <div 
+        className="absolute top-1/2 w-2 h-2 rounded-full bg-white shadow-sm transition-all duration-1000 ease-out z-10" 
+        style={{ left: `calc(${pct}% - 4px)`, transform: "translateY(-50%)", border: `1px solid ${barColor}` }} 
+      />
+    </div>
+  );
+}
+
 export default memo(function ParameterCard({ paramKey, paramName, value, unit, whoRange, status, contextualizingLine }) {
   const [expanded, setExpanded] = useState(false);
   const borderTop = STATUS_BORDER[status] || STATUS_BORDER.NORMAL;
-  const wash = STATUS_WASH[status] || STATUS_WASH.NORMAL;
+  const theme = STATUS_THEME[status] || STATUS_THEME.NORMAL;
   const statusWord = STATUS_WORD[status];
   const deeper = DEEPER[paramKey] || null;
   const deeperId = `${paramKey}-deeper`;
 
   return (
     <div
-      className={`card-tonal ${borderTop} p-6 flex flex-col group relative`}
-      style={{ background: wash.bg, boxShadow: '0 24px 48px rgba(22,29,30,0.06), 0 1px 0 rgba(17,24,82,0.04)' }}
+      className={`card-soft ${borderTop} p-6 flex flex-col group relative h-full w-full`}
     >
-      {/* Header — name + status as italic serif annotation (medical-journal style, not a chip) */}
-      <div className="mb-1 flex items-baseline gap-2 flex-wrap">
-        <p className="text-[14px] font-bold tracking-wide text-gray-900 leading-none">{paramName}</p>
+      {/* Header: name + status label (italic serif on right) */}
+      <div className="flex items-start justify-between gap-4 mb-1">
+        <p className="text-[15px] font-bold text-gray-900 leading-tight">
+          {paramName}
+        </p>
         {status !== "NORMAL" && statusWord && (
-          <span className={`font-serif italic text-[12px] ${wash.word} leading-none`}>
+          <span className={`font-serif italic text-[13px] ${theme.word} leading-none shrink-0 translate-y-0.5`}>
             {statusWord}
           </span>
         )}
       </div>
 
-      {/* WHO range — small, subdued */}
-      <p className="text-[11px] text-gray-500 font-medium mb-5">{whoRange}</p>
+      <p className="text-[11px] text-gray-400 font-medium mb-4">{whoRange}</p>
 
-      {/* Hero number — bigger, with units as marginalia (small italic gray) */}
-      <div className="flex items-baseline gap-1.5 mb-3">
-        <span className="font-serif text-[clamp(44px,9vw,60px)] text-brand-900 font-bold leading-none tracking-tight tabular-nums">
+      {/* Value + unit */}
+      <div className="flex items-baseline gap-2 mb-4">
+        <span className="font-serif text-[clamp(48px,10vw,64px)] text-brand-900 font-bold leading-none tracking-tight tabular-nums">
           {value}
         </span>
         {unit && (
-          <span className="text-[10px] italic text-gray-400 font-normal ml-1 tracking-wide">
+          <span className="text-[11px] text-gray-400 font-medium leading-none">
             {unit}
           </span>
         )}
       </div>
 
-      <p className="text-[13px] text-gray-600 leading-relaxed mb-6 flex-1">
+      <Sparkline paramKey={paramKey} valueStr={value} status={status} />
+
+      {/* Context line */}
+      <p className="text-[13px] text-gray-600 leading-relaxed mb-6">
         {contextualizingLine || "Everything looks good here."}
       </p>
 
+      {/* "i WHAT IT MEANS" button with fluid expansion */}
       {deeper && (
-        <div className="pt-3 mt-auto" style={{ borderTop: '1px solid rgba(198, 197, 210, 0.15)' }}>
+        <div className="mt-auto">
           <button
             onClick={() => setExpanded((p) => !p)}
-            aria-expanded={expanded}
-            aria-controls={deeperId}
-            className="text-[11px] uppercase tracking-wider font-bold text-brand-500 flex items-center gap-2 hover:text-brand-800 transition-colors cursor-pointer bg-transparent border-none"
-            style={{ transition: 'all 0.2s cubic-bezier(0.2,0,0,1)' }}
+            className="group/btn flex items-center gap-2.5 cursor-pointer bg-transparent border-none p-0 transition-opacity hover:opacity-80"
           >
-            <span className="w-5 h-5 bg-surface-high text-neutral-400 flex items-center justify-center text-[11px] font-serif italic">
-              {expanded ? "×" : "i"}
+            <span className="w-5 h-5 bg-[#EDF1F3] text-[#7A869A] flex items-center justify-center text-[10px] font-serif italic font-bold leading-none">
+              i
             </span>
-            {expanded ? "Hide" : "What it means"}
+            <span className="text-[10px] font-bold uppercase tracking-widest text-brand-500">
+              {expanded ? "HIDE CONTEXT" : "WHAT IT MEANS"}
+            </span>
           </button>
 
-          {/* Inline reveal — animates within the card. The grid uses
-              items-start so neighbouring cards aren't stretched when
-              this expands. */}
-          {expanded && (
-            <div
-              id={deeperId}
-              className="mt-4 pt-4 animate-editorial"
-              style={{ borderTop: '1px solid rgba(198, 197, 210, 0.2)' }}
-            >
-              <p className="text-[13px] text-neutral-700 leading-[1.7]">{deeper}</p>
+          <div 
+            id={deeperId}
+            className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+          >
+            <div className="overflow-hidden">
+              <div className="mt-4 pt-4 border-t border-brand-900/5">
+                <p className="text-[12.5px] text-gray-700 leading-relaxed italic">
+                  {deeper}
+                </p>
+              </div>
             </div>
-          )}
+          </div>
         </div>
       )}
     </div>

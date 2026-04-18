@@ -160,7 +160,7 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
       });
       finishParsedOrError(
         parsed,
-        "We couldn't find the test values in this file. Paste the report text below, or type the numbers in by hand.",
+        "This doesn't look like a semen analysis report — we couldn't find sperm count, motility, or morphology values. If it is your report, try pasting the text below or enter the numbers manually.",
         text
       );
     } catch (err) {
@@ -306,8 +306,15 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
     }
   };
 
+  const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+
   const handleFile = (file) => {
     if (!file) return;
+    if (file.size > MAX_FILE_SIZE) {
+      setStatus("error");
+      setMessage(`This file is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Semen analysis reports are usually under 5 MB. Please upload a smaller file or paste the text.`);
+      return;
+    }
     if (file.type === "application/pdf") {
       extractTextFromPDF(file);
     } else if (file.type.startsWith("image/")) {
@@ -366,13 +373,20 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
     return (
       <div className="mb-8 animate-editorial" role="status" aria-live="polite">
         <div className="card-tonal p-8">
-          <div className="flex items-center gap-3 mb-6">
+          <div className="flex items-center gap-3 mb-2">
             <div className="w-8 h-8 flex items-center justify-center text-sm font-bold text-white" style={{ background: 'linear-gradient(135deg, #8BB992, #659F73)', boxShadow: '0 4px 12px rgba(101,159,115,0.3)' }}>✓</div>
             <div>
-              <p className="text-[14px] font-semibold text-gray-900">Found {keys.length} values</p>
-              <p className="text-[11px] text-gray-500">Read on your phone. Nothing was uploaded.</p>
+              <p className="text-[14px] font-semibold text-gray-900">Confirm these values</p>
+              <p className="text-[11px] text-gray-500">Found {keys.length} of 6. Check each number against your report before continuing.</p>
             </div>
           </div>
+
+          {/* Missing fields warning */}
+          {keys.length < PARAM_ORDER.length && (
+            <p className="text-[11px] text-orange-600 mb-4 p-2 bg-orange-50 border-l-[3px] border-orange-400">
+              {PARAM_ORDER.length - keys.length} value{PARAM_ORDER.length - keys.length > 1 ? "s" : ""} not found — you can add {PARAM_ORDER.length - keys.length > 1 ? "them" : "it"} manually after clicking "Edit values first."
+            </p>
+          )}
 
           <div className="grid grid-cols-2 gap-[1px] bg-surface-divider mb-6">
             {keys.map((key) => {
@@ -405,16 +419,18 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
             );
           })}
 
-          <button onClick={() => onAnalyzeNow(extractedData, extractedMeta)} className="btn-primary w-full py-4 text-[14px]">
-            Looks right? See My Report
-          </button>
+          <div className="flex gap-3 flex-wrap">
+            <button onClick={() => onAnalyzeNow(extractedData, extractedMeta)} className="btn-primary flex-1 py-4 text-[13px]">
+              Values Confirmed — See Report
+            </button>
+            <button onClick={() => onExtracted(extractedData, extractedMeta)} className="btn-secondary flex-1 py-4 text-[13px]">
+              Edit Values First
+            </button>
+          </div>
 
-          <div className="flex justify-between mt-4">
+          <div className="flex justify-center mt-4">
             <button onClick={handleReset} className="text-[11px] text-gray-500 hover:text-gray-600 cursor-pointer bg-transparent border-none uppercase tracking-wide font-semibold transition-colors">
               Use a different file
-            </button>
-            <button onClick={() => onExtracted(extractedData, extractedMeta)} className="text-[11px] text-brand-500 hover:text-brand-700 cursor-pointer bg-transparent border-none uppercase tracking-wide font-semibold transition-colors">
-              Edit values first
             </button>
           </div>
 
@@ -540,10 +556,13 @@ export default function ReportScanner({ onExtracted, onAnalyzeNow }) {
     <div className="mb-8">
       <div
         className={`card-tonal ${bgClass} p-10 md:p-14 transition-all cursor-pointer relative group`}
+        role="button"
+        aria-label="Upload lab report — click, drag-and-drop, or paste"
         onDragOver={(e) => { e.preventDefault(); setIsHovering(true); }}
         onDragLeave={() => setIsHovering(false)}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInputRef.current?.click(); } }}
         onPaste={handlePaste}
         tabIndex={0}
       >

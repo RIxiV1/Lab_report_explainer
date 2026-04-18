@@ -55,9 +55,7 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
     clearTimeout(draftTimer.current);
     draftTimer.current = setTimeout(() => {
       saveDraft({
-        values, age, monthsTrying,
-        // Preserve the motility subtype across reloads so a re-grade
-        // uses the same WHO threshold (total 42% vs progressive 30%).
+        values, age, monthsTrying, whoVersion,
         motilitySubtype: persistedSubtype,
       });
     }, 500);
@@ -126,12 +124,10 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
     setMonthsError(monthsErr);
     if (Object.values(newErrors).some((msg) => msg) || ageErr || monthsErr) return;
 
-    const formData = {};
+    const formData = { whoVersion };
     REQUIRED_FIELDS.forEach((f) => { formData[f.key] = parseFloat(values[f.key]); });
     if (age !== "") formData.age = parseFloat(age);
     if (monthsTrying !== "") formData.ttcMonths = parseFloat(monthsTrying);
-    // If the current values were scanned from a PDF, preserve the motility
-    // subtype so the classifier grades against the correct WHO threshold.
     if (extractedMeta.subtypes?.motility) {
       formData.motilitySubtype = extractedMeta.subtypes.motility;
     }
@@ -181,6 +177,7 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
     if (effectiveAge != null && !isNaN(effectiveAge)) formData.age = effectiveAge;
     if (monthsTrying !== "") formData.ttcMonths = parseFloat(monthsTrying);
     if (meta.subtypes?.motility) formData.motilitySubtype = meta.subtypes.motility;
+    formData.whoVersion = whoVersion;
     onSubmit(formData);
   }
 
@@ -363,6 +360,23 @@ export default function InputForm({ onSubmit, onFMCodeLookup, lookupError, onBac
                       </div>
                     );
                   })}
+                </div>
+
+                {/* WHO version selector */}
+                <div className="mt-4">
+                  <label htmlFor="whoVersion" className="text-[10px] text-gray-500 uppercase tracking-wide block mb-2">
+                    Lab standard
+                  </label>
+                  <select
+                    id="whoVersion"
+                    value={whoVersion}
+                    onChange={(e) => setWhoVersion(e.target.value)}
+                    className="bg-transparent text-sm font-medium text-gray-900 py-2 pr-6 focus:outline-none cursor-pointer border-b-2 border-neutral-300/30 focus:border-brand-500 transition-colors"
+                  >
+                    {Object.entries(WHO_VERSIONS).map(([code, v]) => (
+                      <option key={code} value={code}>{v.label}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
