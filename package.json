@@ -2,6 +2,8 @@
   "name": "fm-lab-report-explainer",
   "private": true,
   "version": "1.0.0",
+  "description": "A premium, private-by-design semen analysis interpretation tool powered by WHO 2021 guidelines.",
+  "keywords": ["fertility", "health-tech", "who-2021", "semen-analysis", "privacy", "react", "vite"],
   "type": "module",
   "scripts": {
     "dev": "vite",
