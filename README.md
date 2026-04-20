@@ -96,6 +96,16 @@ Ensure you have Node.js 18+ installed.
 3.  **Build**: `npm run build` (Generates optimized production bundle)
 4.  **Test**: `npm test` (Runs Vitest suite for the rule engine)
 
+## 🚀 Deployment
+
+This application is a static SPA. It can be deployed to any static hosting provider:
+
+- **Vercel/Netlify**: Auto-detects Vite settings.
+- **GitHub Pages**: Build and deploy the `dist/` folder.
+- **S3/Cloudfront**: Sync the `dist/` folder to an S3 bucket.
+
+Ensure `dist/index.html` is served as the entry point for all routes.
+
 ## ⚖️ Disclaimer
 
 This software is an **interpretative aid** based on WHO 2021 guidelines. It is not a substitute for professional medical diagnosis. All results should be reviewed by a qualified andrologist or medical professional.
