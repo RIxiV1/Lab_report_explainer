@@ -34,8 +34,10 @@ Built as a high-performance SPA (Single Page Application) with an emphasis on fl
 
 ## ✨ Core Features
 
+- **Doctor-Ready PDF Export**: Generates a one-page, professional clinical summary for medical consultations.
+- **Visual Sparklines**: Real-time visual plotting of values against WHO normal ranges for instant data context.
 - **Editorial Staggered Reveal**: Results flow in with 90ms staggered timing to reduce cognitive load and enhance the premium feel.
-- **Real-Time Validation**: Instant feedback on clinical ranges (e.g., pH 0-14) preventing logic errors before submission.
+- **Apothecary Design System**: Muted palette (Sage, Amber, Terracotta) and tactile paper textures for a premium clinical aesthetic.
 - **Multimodal Entry**: Switch between high-speed PDF scanning and manual pinpoint entry.
 - **Interactive Checklists**: Personalised "Next Steps" categorized by biological timeline (Immediate, 30 Days, 90 Days).
 - **Comparison Engine**: Compare multiple reports side-by-side to track fertility improvements over time.
@@ -54,4 +56,4 @@ Ensure you have Node.js 18+ installed.
 This software is an **interpretative aid** based on WHO 2021 guidelines. It is not a substitute for professional medical diagnosis. All results should be reviewed by a qualified andrologist or medical professional.
 
 ---
-© 2024 ForMen Health. Private. Precise. Powerful.
+© 2026 ForMen Health. Private. Precise. Powerful.
