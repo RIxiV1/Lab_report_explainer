@@ -19,6 +19,18 @@ Unlike generic health trackers, this system implements a rigid rule engine mappe
 - **TMSC Calculation**: Automatically derives the *Total Motile Sperm Count*, the clinical metric highest-correlated with natural conception.
 - **Urgency Logic**: Accounts for patient age and TTC (Time to Conceive) duration to flag clinical priority.
 
+### Reference Ranges (WHO 6th Ed.)
+
+| Parameter | Normal Range |
+| :--- | :--- |
+| Sperm Concentration | ≥ 16 million/mL |
+| Total Motility | ≥ 42% |
+| Progressive Motility | ≥ 30% |
+| Morphology | ≥ 4% |
+| Volume | ≥ 1.4 mL |
+| pH | 7.2 – 8.0 |
+| WBC (Pus Cells) | < 1.0 million/mL |
+
 ## 🛡️ Privacy First (FM Codes)
 
 The application operates on a **Zero-PII** (Personally Identifiable Information) architecture. 
